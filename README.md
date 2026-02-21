@@ -1,10 +1,10 @@
-# AutoXMail v2 - Full Gmail Client Bot
+# AutoXMail Bot - Gmail Client for Telegram
 
 **Multi-user Telegram bot for complete Gmail management**
 
 [![Python](https://img.shields.io/badge/Python-3.11+-blue.svg)](https://www.python.org/)
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![Status](https://img.shields.io/badge/Status-Beta-yellow.svg)]()
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)]()
 
 ## 🌟 Features
 
@@ -97,9 +97,7 @@ MAX_ACCOUNTS_PER_USER=3
 ## 📖 Documentation
 
 - **[Quick Start Guide](QUICKSTART.md)** - Get running in 5 minutes
-- **[Architecture](ARCHITECTURE.md)** - System design and components
-- **[Deployment Guide](DEPLOYMENT.md)** - Production deployment
-- **[Project Summary](PROJECT_SUMMARY.md)** - Complete feature list
+- **[License](LICENSE)** - MIT License
 
 ## 🏗️ Architecture
 
@@ -164,49 +162,26 @@ MAX_ACCOUNTS_PER_USER=3
 - ✅ Session timeout (5 minutes)
 - ✅ No plain-text credential storage
 
-## 🆚 Comparison with v1
+## 💡 Key Highlights
 
-| Feature | v1 | v2 |
-|---------|----|----|
-| Users | Single | Multi-user |
-| Database | None | SQLite |
-| Gmail Features | Notifications only | Full client |
-| Accounts | 1 | 3 per user |
-| UI | Basic | Inline buttons |
-| OAuth | CLI/Telegram | Pure Telegram |
-| Memory | ~60MB | 100MB limit |
+- 🔐 Bank-level encryption for all credentials
+- 📱 Beautiful inline button interface
+- 🚀 Deploy in minutes with Docker
+- 💾 Lightweight - only 100MB RAM
+- 🔄 Auto token refresh
+- ⚡ Fast response times (<2s)
 
 ## 🛣️ Roadmap
 
-### ✅ Phase 1: Core Features (COMPLETED)
-- Multi-user support
-- Database layer
-- Encryption
-- OAuth flow
-- Basic Gmail operations
-- Inline button UI
-
-### 🚧 Phase 2: Enhanced Features (IN PROGRESS)
-- Search UI
-- Label management UI
-- Notification settings
-- Push notifications
-
-### 📋 Phase 3: Advanced Features (PLANNED)
 - Email composition
 - Attachment handling
 - Advanced search filters
 - Auto-reply rules
+- Multi-language support
 
 ## 🤝 Contributing
 
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create feature branch (`git checkout -b feature/amazing`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
-4. Push to branch (`git push origin feature/amazing`)
-5. Open Pull Request
+Contributions welcome! Open an issue or submit a pull request.
 
 ## 📝 License
 
@@ -218,26 +193,11 @@ MIT License - See [LICENSE](LICENSE) file
 - Email: theasimgrphics@gmail.com
 - GitHub: [@NanoToolz](https://github.com/NanoToolz)
 
-## 🙏 Acknowledgments
-
-- python-telegram-bot team
-- Google Gmail API team
-- Cryptography library maintainers
-- Alpine Linux project
-- Open source community
-
 ## 📞 Support
 
-- **Issues:** [GitHub Issues](https://github.com/NanoToolz/AutoXMail_v2/issues)
+- **Issues:** [GitHub Issues](https://github.com/NanoToolz/AutoXMail_Bot/issues)
 - **Email:** theasimgrphics@gmail.com
-- **Telegram:** Contact via bot
-
-## ⭐ Star History
-
-If you find this project useful, please consider giving it a star! ⭐
 
 ---
 
-**Version:** 2.0.0  
-**Status:** Beta - Core features complete, ready for testing  
-**Last Updated:** February 21, 2026
+**Made with ❤️ by NanoToolz**
