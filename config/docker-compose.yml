@@ -1,15 +1,17 @@
 version: '3.8'
 
 services:
-  autoxmail_v2:
-    build: .
-    container_name: autoxmail_v2
+  autoxmail_bot:
+    build:
+      context: ..
+      dockerfile: config/Dockerfile
+    container_name: autoxmail_bot
     restart: always
     env_file:
       - .env
     volumes:
-      - ./data:/app/data
-      - ./logs:/app/logs
+      - ../data:/app/data
+      - ../logs:/app/logs
     mem_limit: 100m
     mem_reservation: 50m
     security_opt:

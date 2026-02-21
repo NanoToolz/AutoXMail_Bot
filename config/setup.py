@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Setup script for AutoXMail v2."""
+"""Setup script for AutoXMail Bot."""
 import os
 import secrets
 from pathlib import Path
@@ -21,7 +21,7 @@ def create_env_file():
             print("Setup cancelled.")
             return False
     
-    print("\n🔧 AutoXMail v2 Setup\n")
+    print("\n🔧 AutoXMail Bot Setup\n")
     
     # Get inputs
     bot_token = input("Enter Telegram BOT_TOKEN: ").strip()

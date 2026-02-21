@@ -3,14 +3,14 @@ FROM python:3.11-alpine
 # Set working directory
 WORKDIR /app
 
-# Install dependencies
-COPY requirements.txt .
+# Copy requirements
+COPY config/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application
-COPY *.py .
+# Copy source code
+COPY src/ ./src/
 
-# Create non-root user
+# Create non-root user and directories
 RUN adduser -D -u 1000 -s /sbin/nologin botuser && \
     mkdir -p /app/data /app/logs && \
     chown -R botuser:botuser /app
@@ -23,4 +23,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python -c "import sys; sys.exit(0)"
 
 # Run bot
-CMD ["python", "-u", "main.py"]
+CMD ["python", "-u", "src/main.py"]

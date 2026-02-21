@@ -47,7 +47,7 @@ async def error_handler(update: Update, context):
 
 def main():
     """Start the bot."""
-    logger.info("Starting AutoXMail v2...")
+    logger.info("Starting AutoXMail Bot...")
     
     # Create application
     app = Application.builder().token(config.BOT_TOKEN).post_init(post_init).build()

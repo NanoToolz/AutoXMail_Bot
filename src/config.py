@@ -1,4 +1,4 @@
-"""Configuration management for AutoXMail v2."""
+"""Configuration management for AutoXMail Bot."""
 import os
 from pathlib import Path
 from dotenv import load_dotenv
@@ -6,7 +6,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Base paths
-BASE_DIR = Path(__file__).parent
+BASE_DIR = Path(__file__).parent.parent  # Go up to project root
 DATA_DIR = BASE_DIR / 'data'
 LOGS_DIR = BASE_DIR / 'logs'
 
