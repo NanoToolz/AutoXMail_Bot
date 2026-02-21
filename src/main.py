@@ -1,4 +1,10 @@
-"""AutoXMail v2 - Main bot entry point."""
+"""AutoXMail Bot - Main entry point."""
+import sys
+import os
+
+# Add src to path
+sys.path.insert(0, os.path.dirname(__file__))
+
 import asyncio
 import logging
 from telegram import Update
