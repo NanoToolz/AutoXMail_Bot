@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  autoxmail_v2:
+    build: .
+    container_name: autoxmail_v2
+    restart: always
+    env_file:
+      - .env
+    volumes:
+      - ./data:/app/data
+      - ./logs:/app/logs
+    mem_limit: 100m
+    mem_reservation: 50m
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    read_only: false
+    tmpfs:
+      - /tmp
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
