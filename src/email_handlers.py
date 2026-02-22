@@ -180,12 +180,16 @@ class EmailHandlers:
         to_email = context.user_data['compose_to']
         subject = context.user_data['compose_subject']
         
+        # Prepare body preview with ellipsis
+        body_preview = body[:100]
+        ellipsis = '\\.\\.\\.' if len(body) > 100 else ''
+        
         text = (
             f"*{to_tiny_caps('AutoXMail')}* · *{to_tiny_caps('Confirm Send')}*\n"
             f"`────────────────────────`\n\n"
             f"*{to_tiny_caps('To')}:* {escape_markdown(to_email)}\n"
             f"*{to_tiny_caps('Subject')}:* {escape_markdown(subject)}\n"
-            f"*{to_tiny_caps('Body')}:* {escape_markdown(body[:100])}{'\\.\\.\\.' if len(body) > 100 else ''}\n\n"
+            f"*{to_tiny_caps('Body')}:* {escape_markdown(body_preview)}{ellipsis}\n\n"
             f"Ready to send?"
         )
         
