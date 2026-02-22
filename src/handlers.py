@@ -127,7 +127,7 @@ class BotHandlers:
         
         message = (
             f"✨ *{to_tiny_caps('Welcome to AutoXMail')}*\n\n"
-            f"🔐 *{to_tiny_caps('Secure Multi-Account Gmail Client')}*\n\n"
+            f"🔐 *{to_tiny_caps('Secure Multi\\-Account Gmail Client')}*\n\n"
             f"Manage all your Gmail accounts in one place with "
             f"end\\-to\\-end encryption, real\\-time notifications, and "
             f"powerful search capabilities\\.\n\n"
