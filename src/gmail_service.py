@@ -2,16 +2,73 @@
 import json
 import base64
 import re
+import asyncio
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from typing import Optional, List, Dict, Any
 from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
+from googleapiclient.errors import HttpError
 from google.auth.transport.requests import Request
 import aiohttp
 import config
 from crypto import decrypt_token, encrypt_token
 from database import db
+
+
+class TokenExpiredError(Exception):
+    """Token has expired and needs refresh."""
+    pass
+
+
+class QuotaExceededError(Exception):
+    """Gmail API quota exceeded."""
+    pass
+
+
+async def gmail_request_with_backoff(func, *args, **kwargs):
+    """Execute Gmail API request with exponential backoff.
+    
+    Args:
+        func: Function to execute
+        *args: Positional arguments
+        **kwargs: Keyword arguments
+        
+    Returns:
+        Function result
+        
+    Raises:
+        TokenExpiredError: If token is expired
+        QuotaExceededError: If quota exceeded after retries
+        HttpError: For other HTTP errors
+    """
+    max_retries = 3
+    
+    for attempt in range(max_retries):
+        try:
+            return func(*args, **kwargs)
+        except HttpError as e:
+            status_code = e.resp.status
+            
+            if status_code == 429:
+                # Rate limit exceeded
+                wait = 2 ** attempt  # 1s, 2s, 4s
+                await asyncio.sleep(wait)
+                continue
+            elif status_code in [500, 503]:
+                # Server error - retry
+                wait = 2 ** attempt
+                await asyncio.sleep(wait)
+                continue
+            elif status_code == 401:
+                # Unauthorized - token expired
+                raise TokenExpiredError("Gmail token expired")
+            else:
+                # Other error - don't retry
+                raise
+    
+    # Max retries exceeded
+    raise QuotaExceededError("Gmail API quota exceeded after retries")
 
 
 class GmailService:
@@ -72,7 +129,9 @@ class GmailService:
     async def get_labels(self, account_id: int) -> List[Dict[str, Any]]:
         """Get all labels."""
         service = await self.get_service(account_id)
-        results = service.users().labels().list(userId='me').execute()
+        results = await gmail_request_with_backoff(
+            service.users().labels().list(userId='me').execute
+        )
         return results.get('labels', [])
     
     async def get_messages(self, account_id: int, label_id: str = 'INBOX',
@@ -80,12 +139,14 @@ class GmailService:
         """Get messages from label."""
         service = await self.get_service(account_id)
         
-        results = service.users().messages().list(
-            userId='me',
-            labelIds=[label_id],
-            maxResults=max_results,
-            pageToken=page_token
-        ).execute()
+        results = await gmail_request_with_backoff(
+            service.users().messages().list(
+                userId='me',
+                labelIds=[label_id],
+                maxResults=max_results,
+                pageToken=page_token
+            ).execute
+        )
         
         return {
             'messages': results.get('messages', []),
@@ -96,11 +157,13 @@ class GmailService:
     async def get_message(self, account_id: int, message_id: str) -> Dict[str, Any]:
         """Get full message details."""
         service = await self.get_service(account_id)
-        message = service.users().messages().get(
-            userId='me',
-            id=message_id,
-            format='full'
-        ).execute()
+        message = await gmail_request_with_backoff(
+            service.users().messages().get(
+                userId='me',
+                id=message_id,
+                format='full'
+            ).execute
+        )
         return message
     
     async def search_messages(self, account_id: int, query: str,

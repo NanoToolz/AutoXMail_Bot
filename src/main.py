@@ -26,6 +26,7 @@ from admin_handler import admin_handler
 from labels_handler import labels_handler
 from folders_handler import folders_handler
 from advanced_handlers import advanced_handlers
+from push_service import PushService
 
 # Setup logging
 logging.basicConfig(
@@ -76,6 +77,67 @@ async def post_init(application: Application):
     )
     
     logger.info("Bot commands and description set")
+    
+    # Start webhook server if configured
+    if config.WEBHOOK_URL:
+        logger.info("Starting webhook server...")
+        push_service = PushService(application.bot)
+        asyncio.create_task(push_service.start_server())
+        logger.info("Webhook server started")
+    
+    # Start push renewal background task
+    asyncio.create_task(renew_push_subscriptions())
+    logger.info("Push renewal task started")
+
+
+async def renew_push_subscriptions():
+    """Background task to renew push subscriptions every 6 days."""
+    while True:
+        try:
+            # Wait 6 days
+            await asyncio.sleep(6 * 24 * 3600)
+            
+            logger.info("Renewing push subscriptions...")
+            
+            # Get all active accounts
+            async with db.db_path as conn:
+                conn.row_factory = db.aiosqlite.Row
+                cursor = await conn.execute(
+                    "SELECT id, email, user_id FROM gmail_accounts WHERE is_active = 1"
+                )
+                accounts = await cursor.fetchall()
+            
+            # Renew each account
+            for account in accounts:
+                try:
+                    account_id = account['id']
+                    email = account['email']
+                    
+                    # Setup push notification
+                    if config.WEBHOOK_URL:
+                        topic_name = f"projects/{config.GCP_PROJECT_ID}/topics/gmail-push"
+                        result = await gmail_service.setup_push(account_id, topic_name)
+                        
+                        # Update history ID
+                        async with db.db_path as conn:
+                            await conn.execute(
+                                "UPDATE gmail_accounts SET last_history_id = ? WHERE id = ?",
+                                (result['historyId'], account_id)
+                            )
+                            await conn.commit()
+                        
+                        logger.info(f"Push renewed for {email}")
+                    
+                except Exception as e:
+                    logger.error(f"Push renewal failed for {account.get('email', 'unknown')}: {e}")
+                    continue
+            
+            logger.info("Push renewal completed")
+            
+        except Exception as e:
+            logger.error(f"Push renewal task error: {e}")
+            # Continue running even if error occurs
+            await asyncio.sleep(3600)  # Wait 1 hour before retry
 
 
 async def error_handler(update: Update, context):
@@ -166,6 +228,9 @@ def main():
     app.add_handler(CallbackQueryHandler(advanced_handlers.show_bot_settings, pattern="^bot_settings$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.start_change_photo, pattern="^bot_change_photo$"))
     app.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, advanced_handlers.change_bot_photo))
+    
+    app.add_handler(CallbackQueryHandler(advanced_handlers.show_account_auto_delete, pattern="^account_autodelete:"))
+    app.add_handler(CallbackQueryHandler(advanced_handlers.set_account_auto_delete, pattern="^account_timer:"))
     
     app.add_handler(CallbackQueryHandler(advanced_handlers.confirm_unsubscribe, pattern="^email:unsub:"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.unsubscribe_email, pattern="^email:unsub_confirm:"))

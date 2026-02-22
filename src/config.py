@@ -37,6 +37,7 @@ MEMORY_LIMIT_MB = 100
 # Webhook (optional)
 WEBHOOK_URL = os.getenv('WEBHOOK_URL')  # For push notifications
 WEBHOOK_SECRET = os.getenv('WEBHOOK_SECRET')
+GCP_PROJECT_ID = os.getenv('GCP_PROJECT_ID')  # Google Cloud Project ID for Pub/Sub
 
 # Rate limiting
 RATE_LIMIT_REQUESTS = 30  # per minute per user

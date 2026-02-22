@@ -187,8 +187,12 @@ class BotHandlers:
             message += f"• {escape_markdown(acc['email'])}\n"
             keyboard.append([
                 InlineKeyboardButton(
-                    f"📬 {truncate_text(acc['email'], 30)}",
+                    f"📬 {truncate_text(acc['email'], 25)}",
                     callback_data=f"select_account:{acc['id']}"
+                ),
+                InlineKeyboardButton(
+                    f"⏱️",
+                    callback_data=f"account_autodelete:{acc['id']}"
                 )
             ])
         

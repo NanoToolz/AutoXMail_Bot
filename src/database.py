@@ -37,6 +37,8 @@ class Database:
                     token_enc BLOB,
                     added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     last_sync TIMESTAMP,
+                    last_history_id TEXT,
+                    auto_delete_secs INTEGER DEFAULT 0,
                     is_active BOOLEAN DEFAULT 1,
                     FOREIGN KEY (user_id) REFERENCES users(user_id),
                     UNIQUE(user_id, email)
