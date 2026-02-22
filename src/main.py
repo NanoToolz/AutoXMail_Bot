@@ -81,15 +81,16 @@ async def post_init(application: Application):
     # Notify admin on startup
     try:
         from datetime import datetime
+        from formatter import to_tiny_caps, escape_markdown
         startup_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         await application.bot.send_message(
             chat_id=config.ADMIN_CHAT_ID,
             text=(
-                f"✅ *ʙᴏᴛ sᴛᴀʀᴛᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ*\n"
+                f"✅ *{to_tiny_caps('Bot Started Successfully')}*\n"
                 f"`────────────────────────`\n\n"
-                f"🕐 Time: `{startup_time}`\n"
-                f"🤖 Status: Running\n"
-                f"📊 Ready to serve users"
+                f"🕐 {to_tiny_caps('Time')}: `{startup_time}`\n"
+                f"🤖 {to_tiny_caps('Status')}: {to_tiny_caps('Running')}\n"
+                f"📊 {to_tiny_caps('Ready to serve users')}"
             ),
             parse_mode='MarkdownV2'
         )

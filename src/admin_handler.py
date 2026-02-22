@@ -25,7 +25,10 @@ class AdminHandler:
         user_id = update.effective_user.id
         
         if not self.is_admin(user_id):
-            await update.message.reply_text("❌ Unauthorized. Admin only.")
+            await update.message.reply_text(
+                f"❌ {to_tiny_caps('Unauthorized. Admin only.')}",
+                parse_mode='MarkdownV2'
+            )
             return
         
         try:
@@ -35,7 +38,7 @@ class AdminHandler:
                 await update.message.reply_text(
                     f"📋 *{to_tiny_caps('Logs')}*\n"
                     f"`────────────────────────`\n\n"
-                    f"No log file found\\.",
+                    f"{to_tiny_caps('No log file found.')}",
                     parse_mode='MarkdownV2'
                 )
                 return
@@ -53,21 +56,27 @@ class AdminHandler:
                 log_text = "...\n" + log_text
             
             await update.message.reply_text(
-                f"📋 *{to_tiny_caps('Bot Logs')}* \\(Last 50 lines\\)\n"
+                f"📋 *{to_tiny_caps('Bot Logs')}* \\({to_tiny_caps('Last 50 lines')}\\)\n"
                 f"`────────────────────────`\n\n"
                 f"```\n{escape_markdown(log_text)}```",
                 parse_mode='MarkdownV2'
             )
             
         except Exception as e:
-            await update.message.reply_text(f"❌ Error reading logs: {str(e)}")
+            await update.message.reply_text(
+                f"❌ {to_tiny_caps('Error reading logs')}: {escape_markdown(str(e))}",
+                parse_mode='MarkdownV2'
+            )
     
     async def health_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show bot health status."""
         user_id = update.effective_user.id
         
         if not self.is_admin(user_id):
-            await update.message.reply_text("❌ Unauthorized. Admin only.")
+            await update.message.reply_text(
+                f"❌ {to_tiny_caps('Unauthorized. Admin only.')}",
+                parse_mode='MarkdownV2'
+            )
             return
         
         try:
@@ -98,13 +107,13 @@ class AdminHandler:
                 f"🏥 *{to_tiny_caps('Bot Health')}*\n"
                 f"`────────────────────────`\n\n"
                 f"*{to_tiny_caps('System')}:*\n"
-                f"• RAM Usage: {ram_usage_mb:.1f} MB\n"
-                f"• DB Size: {db_size:.2f} MB\n"
-                f"• Uptime: {escape_markdown(uptime_str)}\n\n"
+                f"• {to_tiny_caps('RAM Usage')}: {ram_usage_mb:.1f} MB\n"
+                f"• {to_tiny_caps('DB Size')}: {db_size:.2f} MB\n"
+                f"• {to_tiny_caps('Uptime')}: {escape_markdown(uptime_str)}\n\n"
                 f"*{to_tiny_caps('Statistics')}:*\n"
-                f"• Total Users: {total_users}\n"
-                f"• Gmail Accounts: {total_accounts}\n\n"
-                f"*{to_tiny_caps('Status')}:* ✅ Running"
+                f"• {to_tiny_caps('Total Users')}: {total_users}\n"
+                f"• {to_tiny_caps('Gmail Accounts')}: {total_accounts}\n\n"
+                f"*{to_tiny_caps('Status')}:* ✅ {to_tiny_caps('Running')}"
             )
             
             keyboard = [[InlineKeyboardButton(
@@ -119,7 +128,10 @@ class AdminHandler:
             )
             
         except Exception as e:
-            await update.message.reply_text(f"❌ Error getting health info: {str(e)}")
+            await update.message.reply_text(
+                f"❌ {to_tiny_caps('Error getting health info')}: {escape_markdown(str(e))}",
+                parse_mode='MarkdownV2'
+            )
     
     async def restart_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Restart the bot."""
@@ -133,17 +145,20 @@ class AdminHandler:
         
         if not self.is_admin(user_id):
             if update.callback_query:
-                await query.answer("❌ Unauthorized", show_alert=True)
+                await query.answer(f"❌ {to_tiny_caps('Unauthorized')}", show_alert=True)
             else:
-                await update.message.reply_text("❌ Unauthorized. Admin only.")
+                await update.message.reply_text(
+                    f"❌ {to_tiny_caps('Unauthorized. Admin only.')}",
+                    parse_mode='MarkdownV2'
+                )
             return
         
         try:
             text = (
                 f"♻️ *{to_tiny_caps('Restarting Bot')}*\n"
                 f"`────────────────────────`\n\n"
-                f"Bot is restarting\\.\\.\\.\n"
-                f"This may take a few seconds\\."
+                f"{to_tiny_caps('Bot is restarting...')}\n"
+                f"{to_tiny_caps('This may take a few seconds.')}"
             )
             
             if update.callback_query:
@@ -155,7 +170,7 @@ class AdminHandler:
             os.execv(sys.executable, [sys.executable] + sys.argv)
             
         except Exception as e:
-            error_text = f"❌ {escape_markdown(f'Restart failed: {str(e)}')}"
+            error_text = f"❌ {to_tiny_caps('Restart failed')}: {escape_markdown(str(e))}"
             if update.callback_query:
                 await query.edit_message_text(error_text, parse_mode='MarkdownV2')
             else:
@@ -166,7 +181,10 @@ class AdminHandler:
         user_id = update.effective_user.id
         
         if not self.is_admin(user_id):
-            await update.message.reply_text("❌ Unauthorized. Admin only.")
+            await update.message.reply_text(
+                f"❌ {to_tiny_caps('Unauthorized. Admin only.')}",
+                parse_mode='MarkdownV2'
+            )
             return
         
         # Check if message provided
@@ -174,8 +192,8 @@ class AdminHandler:
             await update.message.reply_text(
                 f"📢 *{to_tiny_caps('Broadcast')}*\n"
                 f"`────────────────────────`\n\n"
-                f"Usage: `/broadcast <message>`\n\n"
-                f"Example:\n"
+                f"{to_tiny_caps('Usage')}: `/broadcast <message>`\n\n"
+                f"{to_tiny_caps('Example')}:\n"
                 f"`/broadcast Bot will be down for maintenance in 10 minutes`",
                 parse_mode='MarkdownV2'
             )
@@ -195,7 +213,7 @@ class AdminHandler:
             fail_count = 0
             
             status_msg = await update.message.reply_text(
-                f"📢 Broadcasting to {len(users)} users\\.\\.\\.",
+                f"📢 {to_tiny_caps(f'Broadcasting to {len(users)} users...')}",
                 parse_mode='MarkdownV2'
             )
             
@@ -218,20 +236,26 @@ class AdminHandler:
             await status_msg.edit_text(
                 f"📢 *{to_tiny_caps('Broadcast Complete')}*\n"
                 f"`────────────────────────`\n\n"
-                f"✅ Sent: {success_count}\n"
-                f"❌ Failed: {fail_count}",
+                f"✅ {to_tiny_caps('Sent')}: {success_count}\n"
+                f"❌ {to_tiny_caps('Failed')}: {fail_count}",
                 parse_mode='MarkdownV2'
             )
             
         except Exception as e:
-            await update.message.reply_text(f"❌ Broadcast failed: {escape_markdown(str(e))}", parse_mode='MarkdownV2')
+            await update.message.reply_text(
+                f"❌ {to_tiny_caps('Broadcast failed')}: {escape_markdown(str(e))}",
+                parse_mode='MarkdownV2'
+            )
     
     async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show detailed statistics."""
         user_id = update.effective_user.id
         
         if not self.is_admin(user_id):
-            await update.message.reply_text("❌ Unauthorized. Admin only.")
+            await update.message.reply_text(
+                f"❌ {to_tiny_caps('Unauthorized. Admin only.')}",
+                parse_mode='MarkdownV2'
+            )
             return
         
         try:
@@ -258,21 +282,24 @@ class AdminHandler:
                 f"📊 *{to_tiny_caps('Bot Statistics')}*\n"
                 f"`────────────────────────`\n\n"
                 f"*{to_tiny_caps('Users')}:*\n"
-                f"• Total Users: {total_users}\n"
-                f"• With Accounts: {users_with_accounts}\n"
-                f"• Without Accounts: {total_users - users_with_accounts}\n\n"
+                f"• {to_tiny_caps('Total Users')}: {total_users}\n"
+                f"• {to_tiny_caps('With Accounts')}: {users_with_accounts}\n"
+                f"• {to_tiny_caps('Without Accounts')}: {total_users - users_with_accounts}\n\n"
                 f"*{to_tiny_caps('Gmail Accounts')}:*\n"
-                f"• Total: {total_accounts}\n"
-                f"• Active: {active_accounts}\n"
-                f"• Inactive: {total_accounts - active_accounts}\n\n"
+                f"• {to_tiny_caps('Total')}: {total_accounts}\n"
+                f"• {to_tiny_caps('Active')}: {active_accounts}\n"
+                f"• {to_tiny_caps('Inactive')}: {total_accounts - active_accounts}\n\n"
                 f"*{to_tiny_caps('Average')}:*\n"
-                f"• Accounts per User: {total_accounts / users_with_accounts if users_with_accounts > 0 else 0:.1f}"
+                f"• {to_tiny_caps('Accounts per User')}: {total_accounts / users_with_accounts if users_with_accounts > 0 else 0:.1f}"
             )
             
             await update.message.reply_text(text, parse_mode='MarkdownV2')
             
         except Exception as e:
-            await update.message.reply_text(f"❌ Error: {escape_markdown(str(e))}", parse_mode='MarkdownV2')
+            await update.message.reply_text(
+                f"❌ {to_tiny_caps('Error')}: {escape_markdown(str(e))}",
+                parse_mode='MarkdownV2'
+            )
 
 
 # Global instance
