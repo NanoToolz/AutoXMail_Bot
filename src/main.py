@@ -215,12 +215,12 @@ def main():
     app.add_handler(CallbackQueryHandler(advanced_handlers.show_blocklist, pattern="^blocklist$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.start_add_blocklist, pattern="^blocklist_add$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.remove_from_blocklist, pattern="^blocklist_remove:"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, advanced_handlers.add_to_blocklist))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, advanced_handlers.add_to_blocklist_handler))
     
     app.add_handler(CallbackQueryHandler(advanced_handlers.show_vip_senders, pattern="^vip_senders$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.start_add_vip, pattern="^vip_add$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.remove_vip_sender, pattern="^vip_remove:"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, advanced_handlers.add_vip_sender))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, advanced_handlers.add_vip_sender_handler))
     
     app.add_handler(CallbackQueryHandler(advanced_handlers.show_privacy_settings, pattern="^privacy_settings$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.set_privacy_timer, pattern="^privacy_timer:"))
@@ -233,10 +233,10 @@ def main():
     app.add_handler(CallbackQueryHandler(advanced_handlers.set_account_auto_delete, pattern="^account_timer:"))
     
     app.add_handler(CallbackQueryHandler(advanced_handlers.confirm_unsubscribe, pattern="^email:unsub:"))
-    app.add_handler(CallbackQueryHandler(advanced_handlers.unsubscribe_email, pattern="^email:unsub_confirm:"))
+    app.add_handler(CallbackQueryHandler(advanced_handlers.execute_unsubscribe, pattern="^email:unsub_confirm:"))
     
     # Inbox time range handlers
-    app.add_handler(CallbackQueryHandler(handlers.inbox_with_range, pattern="^inbox_range:"))
+    app.add_handler(CallbackQueryHandler(handlers.inbox_with_time, pattern="^inbox_range:"))
     
     # OAuth force add handler
     app.add_handler(CallbackQueryHandler(oauth_handler.force_add_account, pattern="^oauth_force_add:"))
