@@ -114,6 +114,10 @@ class BotHandlers:
             ],
             [
                 InlineKeyboardButton(f"🔍 {to_tiny_caps('Search')}", callback_data="search"),
+                InlineKeyboardButton(f"📁 {to_tiny_caps('Folders')}", callback_data="folders")
+            ],
+            [
+                InlineKeyboardButton(f"🏷️ {to_tiny_caps('Labels')}", callback_data="labels"),
                 InlineKeyboardButton(f"⚙️ {to_tiny_caps('Settings')}", callback_data="settings")
             ],
             [

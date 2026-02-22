@@ -79,6 +79,50 @@ class Database:
                 )
             """)
             
+            # VIP senders table
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS vip_senders (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    gmail_account_id INTEGER,
+                    sender_value TEXT NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    UNIQUE(user_id, gmail_account_id, sender_value)
+                )
+            """)
+            
+            # Blocklist table
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS blocklist (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    gmail_account_id INTEGER,
+                    blocked_value TEXT NOT NULL,
+                    created_at TEXT DEFAULT (datetime('now')),
+                    UNIQUE(user_id, gmail_account_id, blocked_value)
+                )
+            """)
+            
+            # Privacy settings table
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS privacy_settings (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL UNIQUE,
+                    global_auto_delete_secs INTEGER DEFAULT 0
+                )
+            """)
+            
+            # Log threads table (for Telegram log group)
+            await db.execute("""
+                CREATE TABLE IF NOT EXISTS log_threads (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL,
+                    section TEXT NOT NULL,
+                    telegram_msg_id INTEGER NOT NULL,
+                    UNIQUE(user_id, section)
+                )
+            """)
+            
             await db.commit()
     
     async def add_user(self, user_id: int, username: str = None, first_name: str = None):

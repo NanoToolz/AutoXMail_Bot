@@ -22,11 +22,18 @@ from handlers import handlers
 from oauth_handler import oauth_handler
 from email_handlers import email_handlers, SELECT_FROM, ENTER_TO, ENTER_SUBJECT, ENTER_BODY, CONFIRM
 from search_handler import search_handler, SELECT_ACCOUNT, ENTER_QUERY
+from admin_handler import admin_handler
+from labels_handler import labels_handler
+from folders_handler import folders_handler
 
 # Setup logging
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
+    level=logging.INFO,
+    handlers=[
+        logging.FileHandler(config.LOGS_DIR / 'bot.log'),
+        logging.StreamHandler()
+    ]
 )
 logger = logging.getLogger(__name__)
 
@@ -91,6 +98,12 @@ def main():
     app.add_handler(CommandHandler("start", handlers.start))
     app.add_handler(CommandHandler("help", handlers.help_command))
     
+    # Admin commands
+    app.add_handler(CommandHandler("logs", admin_handler.logs_command))
+    app.add_handler(CommandHandler("health", admin_handler.health_command))
+    app.add_handler(CommandHandler("restart", admin_handler.restart_command))
+    app.add_handler(CallbackQueryHandler(admin_handler.restart_command, pattern="^admin_restart$"))
+    
     # Compose email conversation handler
     compose_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(email_handlers.start_compose, pattern="^compose$")],
@@ -120,6 +133,20 @@ def main():
         allow_reentry=True
     )
     app.add_handler(search_conv_handler)
+    
+    # Labels handlers
+    app.add_handler(CallbackQueryHandler(labels_handler.show_labels, pattern="^labels$"))
+    app.add_handler(CallbackQueryHandler(labels_handler.select_labels_account, pattern="^labels_account:"))
+    app.add_handler(CallbackQueryHandler(labels_handler.view_label_emails, pattern="^label_view:"))
+    app.add_handler(CallbackQueryHandler(labels_handler.confirm_delete_label, pattern="^label_delete:"))
+    app.add_handler(CallbackQueryHandler(labels_handler.delete_label, pattern="^label_delete_confirm:"))
+    app.add_handler(CallbackQueryHandler(labels_handler.start_create_label, pattern="^label_create$"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, labels_handler.create_label))
+    
+    # Folders handlers
+    app.add_handler(CallbackQueryHandler(folders_handler.show_folders, pattern="^folders$"))
+    app.add_handler(CallbackQueryHandler(folders_handler.select_folders_account, pattern="^folders_account:"))
+    app.add_handler(CallbackQueryHandler(folders_handler.view_folder_emails, pattern="^folder_view:"))
     
     # Email interaction handlers
     app.add_handler(CallbackQueryHandler(email_handlers.start_reply, pattern="^email:reply:"))
