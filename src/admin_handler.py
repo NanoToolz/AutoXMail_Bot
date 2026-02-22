@@ -160,6 +160,119 @@ class AdminHandler:
                 await query.edit_message_text(error_text, parse_mode='MarkdownV2')
             else:
                 await update.message.reply_text(error_text, parse_mode='MarkdownV2')
+    
+    async def broadcast_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Broadcast message to all users."""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("❌ Unauthorized. Admin only.")
+            return
+        
+        # Check if message provided
+        if not context.args:
+            await update.message.reply_text(
+                f"📢 *{to_tiny_caps('Broadcast')}*\n"
+                f"`────────────────────────`\n\n"
+                f"Usage: `/broadcast <message>`\n\n"
+                f"Example:\n"
+                f"`/broadcast Bot will be down for maintenance in 10 minutes`",
+                parse_mode='MarkdownV2'
+            )
+            return
+        
+        broadcast_text = ' '.join(context.args)
+        
+        try:
+            # Get all users
+            async with db.db_path as conn:
+                conn.row_factory = db.aiosqlite.Row
+                cursor = await conn.execute("SELECT DISTINCT user_id FROM users")
+                users = await cursor.fetchall()
+            
+            # Send broadcast
+            success_count = 0
+            fail_count = 0
+            
+            status_msg = await update.message.reply_text(
+                f"📢 Broadcasting to {len(users)} users\\.\\.\\.",
+                parse_mode='MarkdownV2'
+            )
+            
+            for user in users:
+                try:
+                    await context.bot.send_message(
+                        chat_id=user['user_id'],
+                        text=(
+                            f"📢 *{to_tiny_caps('Announcement')}*\n"
+                            f"`────────────────────────`\n\n"
+                            f"{escape_markdown(broadcast_text)}"
+                        ),
+                        parse_mode='MarkdownV2'
+                    )
+                    success_count += 1
+                except Exception:
+                    fail_count += 1
+            
+            # Update status
+            await status_msg.edit_text(
+                f"📢 *{to_tiny_caps('Broadcast Complete')}*\n"
+                f"`────────────────────────`\n\n"
+                f"✅ Sent: {success_count}\n"
+                f"❌ Failed: {fail_count}",
+                parse_mode='MarkdownV2'
+            )
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Broadcast failed: {escape_markdown(str(e))}", parse_mode='MarkdownV2')
+    
+    async def stats_command(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show detailed statistics."""
+        user_id = update.effective_user.id
+        
+        if not self.is_admin(user_id):
+            await update.message.reply_text("❌ Unauthorized. Admin only.")
+            return
+        
+        try:
+            async with db.db_path as conn:
+                conn.row_factory = None
+                
+                # Total users
+                cursor = await conn.execute("SELECT COUNT(*) FROM users")
+                total_users = (await cursor.fetchone())[0]
+                
+                # Active accounts
+                cursor = await conn.execute("SELECT COUNT(*) FROM gmail_accounts WHERE is_active = 1")
+                active_accounts = (await cursor.fetchone())[0]
+                
+                # Total accounts
+                cursor = await conn.execute("SELECT COUNT(*) FROM gmail_accounts")
+                total_accounts = (await cursor.fetchone())[0]
+                
+                # Users with accounts
+                cursor = await conn.execute("SELECT COUNT(DISTINCT user_id) FROM gmail_accounts")
+                users_with_accounts = (await cursor.fetchone())[0]
+            
+            text = (
+                f"📊 *{to_tiny_caps('Bot Statistics')}*\n"
+                f"`────────────────────────`\n\n"
+                f"*{to_tiny_caps('Users')}:*\n"
+                f"• Total Users: {total_users}\n"
+                f"• With Accounts: {users_with_accounts}\n"
+                f"• Without Accounts: {total_users - users_with_accounts}\n\n"
+                f"*{to_tiny_caps('Gmail Accounts')}:*\n"
+                f"• Total: {total_accounts}\n"
+                f"• Active: {active_accounts}\n"
+                f"• Inactive: {total_accounts - active_accounts}\n\n"
+                f"*{to_tiny_caps('Average')}:*\n"
+                f"• Accounts per User: {total_accounts / users_with_accounts if users_with_accounts > 0 else 0:.1f}"
+            )
+            
+            await update.message.reply_text(text, parse_mode='MarkdownV2')
+            
+        except Exception as e:
+            await update.message.reply_text(f"❌ Error: {escape_markdown(str(e))}", parse_mode='MarkdownV2')
 
 
 # Global instance

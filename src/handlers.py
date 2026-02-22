@@ -100,6 +100,16 @@ class BotHandlers:
         
         user = update.effective_user
         
+        # Delete old bot message if exists
+        if update.message and 'last_bot_message' in context.user_data:
+            try:
+                await context.bot.delete_message(
+                    chat_id=user.id,
+                    message_id=context.user_data['last_bot_message']
+                )
+            except:
+                pass  # Message already deleted or doesn't exist
+        
         # Register user
         await db.add_user(user.id, user.username, user.first_name)
         
@@ -145,11 +155,13 @@ class BotHandlers:
         )
         
         if update.message:
-            await update.message.reply_text(
+            msg = await update.message.reply_text(
                 message,
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='MarkdownV2'
             )
+            # Store message ID for future deletion
+            context.user_data['last_bot_message'] = msg.message_id
         else:
             await update.callback_query.edit_message_text(
                 message,

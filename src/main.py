@@ -78,6 +78,25 @@ async def post_init(application: Application):
     
     logger.info("Bot commands and description set")
     
+    # Notify admin on startup
+    try:
+        from datetime import datetime
+        startup_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        await application.bot.send_message(
+            chat_id=config.ADMIN_CHAT_ID,
+            text=(
+                f"✅ *ʙᴏᴛ sᴛᴀʀᴛᴇᴅ sᴜᴄᴄᴇssғᴜʟʟʏ*\n"
+                f"`────────────────────────`\n\n"
+                f"🕐 Time: `{startup_time}`\n"
+                f"🤖 Status: Running\n"
+                f"📊 Ready to serve users"
+            ),
+            parse_mode='MarkdownV2'
+        )
+        logger.info("Startup notification sent to admin")
+    except Exception as e:
+        logger.error(f"Failed to send startup notification: {e}")
+    
     # Start webhook server if configured
     if config.WEBHOOK_URL:
         logger.info("Starting webhook server...")
@@ -165,6 +184,8 @@ def main():
     app.add_handler(CommandHandler("logs", admin_handler.logs_command))
     app.add_handler(CommandHandler("health", admin_handler.health_command))
     app.add_handler(CommandHandler("restart", admin_handler.restart_command))
+    app.add_handler(CommandHandler("broadcast", admin_handler.broadcast_command))
+    app.add_handler(CommandHandler("stats", admin_handler.stats_command))
     app.add_handler(CallbackQueryHandler(admin_handler.restart_command, pattern="^admin_restart$"))
     
     # Compose email conversation handler
@@ -236,7 +257,7 @@ def main():
     app.add_handler(CallbackQueryHandler(advanced_handlers.execute_unsubscribe, pattern="^email:unsub_confirm:"))
     
     # Inbox time range handlers
-    app.add_handler(CallbackQueryHandler(handlers.inbox_with_time, pattern="^inbox_range:"))
+    app.add_handler(CallbackQueryHandler(handlers.inbox_with_time, pattern="^inbox_time:"))
     
     # OAuth force add handler
     app.add_handler(CallbackQueryHandler(oauth_handler.force_add_account, pattern="^oauth_force_add:"))
