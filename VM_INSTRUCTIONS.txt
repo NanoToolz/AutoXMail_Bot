@@ -1,0 +1,86 @@
+╔══════════════════════════════════════════════════════════════╗
+║                  VM DEPLOYMENT INSTRUCTIONS                  ║
+╚══════════════════════════════════════════════════════════════╝
+
+STEP 1: Pull Latest Code
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+cd ~/AutoXMail_Bot
+git pull origin main
+
+
+STEP 2: Verify Code
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+bash verify-deployment.sh
+
+
+STEP 3: If Verification Fails, Rebuild Container
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+podman stop autoxmail_bot
+podman rm autoxmail_bot
+podman rmi localhost/autoxmail-bot:latest
+bash setup.sh
+
+
+STEP 4: Quick Health Check
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+bash quick-check.sh
+
+
+STEP 5: Test OAuth Flow
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+See: test-oauth-flow.md
+
+1. Open Telegram bot
+2. Send /start
+3. Click "Add Account"
+4. Upload credentials.json
+5. Click auth link
+6. Paste auth code
+7. Verify account added
+
+
+USEFUL COMMANDS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+View logs:      podman logs -f autoxmail_bot
+Stop bot:       podman stop autoxmail_bot
+Start bot:      podman start autoxmail_bot
+Restart bot:    podman restart autoxmail_bot
+Check status:   podman ps
+Remove all:     podman stop autoxmail_bot && podman rm autoxmail_bot
+
+
+TROUBLESHOOTING
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+See: DEPLOYMENT_STATUS.md
+
+If bot crashes:
+1. Check logs: podman logs autoxmail_bot
+2. Look for "ContextTypes" error
+3. If found, rebuild container (Step 3)
+
+If OAuth doesn't work:
+1. Check state in logs
+2. Verify handler registration
+3. Test with fresh /start
+
+
+WHAT WAS FIXED
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✓ Added ContextTypes import (commit 04e898d)
+✓ Fixed OAuth handler priority (commit f151f13)
+✓ Applied tiny caps font everywhere (commit 56afb0c)
+✓ Completed all improvement phases (commit aac96dc)
+✓ Added verification scripts (commits 8193d83, 4e3ee9a)
+✓ Added testing guide (commit a7a5ff0)
+✓ Added deployment docs (commit 2eb7fd3)
+
+
+EXPECTED RESULT
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Bot should start without errors and OAuth should work perfectly!
+
+Logs should show:
+✓ Bot started successfully!
+✓ No ContextTypes errors
+✓ OAuth flow completes successfully
+✓ Accounts can be added
