@@ -125,12 +125,14 @@ class BotHandlers:
             ]
         ]
         
-        secure_text = to_tiny_caps('Secure Multi-Account Gmail Client')
+        # Prepare text with proper escaping outside f-strings
+        welcome_text = to_tiny_caps('Welcome to AutoXMail')
+        secure_text = to_tiny_caps('Secure Multi-Account Gmail Client').replace('-', '\\-')
         get_started_text = to_tiny_caps('Get Started')
         
         message = (
-            f"✨ *{to_tiny_caps('Welcome to AutoXMail')}*\n\n"
-            f"🔐 *{secure_text.replace('-', '\\-')}*\n\n"
+            f"✨ *{welcome_text}*\n\n"
+            f"🔐 *{secure_text}*\n\n"
             f"Manage all your Gmail accounts in one place with "
             f"end\\-to\\-end encryption, real\\-time notifications, and "
             f"powerful search capabilities\\.\n\n"
