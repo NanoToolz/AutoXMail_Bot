@@ -37,6 +37,10 @@ fi
 echo ""
 echo "⚙️  Step 3: Setting up Environment..."
 
+# Create directories with proper permissions
+mkdir -p data logs
+chmod 777 data logs
+
 # Check if .env exists
 if [ -f ".env" ]; then
     echo -e "${YELLOW}⚠️  .env file already exists${NC}"

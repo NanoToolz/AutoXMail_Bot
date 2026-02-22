@@ -10,13 +10,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy source code
 COPY src/ ./src/
 
-# Create non-root user and directories
-RUN adduser -D -u 1000 -s /sbin/nologin botuser && \
-    mkdir -p /app/data /app/logs && \
-    chown -R botuser:botuser /app
-
-# Switch to non-root
-USER botuser
+# Create directories with proper permissions
+RUN mkdir -p /app/data /app/logs && \
+    chmod 777 /app/data /app/logs
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
