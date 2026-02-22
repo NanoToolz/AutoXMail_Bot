@@ -29,10 +29,42 @@ logger = logging.getLogger(__name__)
 
 
 async def post_init(application: Application):
-    """Initialize database after bot starts."""
+    """Initialize database and set bot commands after bot starts."""
     logger.info("Initializing database...")
     await db.init_db()
     logger.info("Database initialized")
+    
+    # Set bot commands
+    logger.info("Setting bot commands...")
+    from telegram import BotCommand
+    commands = [
+        BotCommand("start", "🏠 Main menu"),
+        BotCommand("help", "ℹ️ Help and information"),
+        BotCommand("accounts", "📧 Manage Gmail accounts"),
+        BotCommand("inbox", "📬 View inbox"),
+        BotCommand("search", "🔍 Search emails"),
+        BotCommand("settings", "⚙️ Bot settings"),
+    ]
+    await application.bot.set_my_commands(commands)
+    
+    # Set bot description
+    await application.bot.set_my_short_description(
+        "Secure multi-account Gmail client for Telegram with end-to-end encryption"
+    )
+    
+    await application.bot.set_my_description(
+        "AutoXMail is a powerful Gmail client for Telegram that lets you manage "
+        "multiple Gmail accounts securely. Features include:\n\n"
+        "• Multi-account support with end-to-end encryption\n"
+        "• Browse, search, and manage emails\n"
+        "• Real-time push notifications\n"
+        "• Label management and organization\n"
+        "• Spam and trash management\n"
+        "• Rate limiting and security features\n\n"
+        "Get started with /start"
+    )
+    
+    logger.info("Bot commands and description set")
 
 
 async def error_handler(update: Update, context):
@@ -66,6 +98,10 @@ def main():
     app.add_handler(CallbackQueryHandler(handlers.delete_message, pattern="^delete:"))
     app.add_handler(CallbackQueryHandler(handlers.confirm_delete, pattern="^confirm_delete:"))
     app.add_handler(CallbackQueryHandler(handlers.help_command, pattern="^help$"))
+    app.add_handler(CallbackQueryHandler(handlers.settings, pattern="^settings$"))
+    app.add_handler(CallbackQueryHandler(handlers.toggle_notifications, pattern="^toggle_notifications$"))
+    app.add_handler(CallbackQueryHandler(handlers.toggle_spam_filter, pattern="^toggle_spam_filter$"))
+    app.add_handler(CallbackQueryHandler(handlers.toggle_promo_filter, pattern="^toggle_promo_filter$"))
     
     # OAuth handlers
     app.add_handler(CallbackQueryHandler(oauth_handler.start_oauth, pattern="^add_account$"))

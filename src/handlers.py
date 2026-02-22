@@ -39,9 +39,17 @@ class BotHandlers:
         ]
         
         message = (
-            "🤖 *AutoXMail v2*\n\n"
-            "Full Gmail client in Telegram\n\n"
-            "Choose an option below:"
+            "✨ *Welcome to AutoXMail*\n\n"
+            "🔐 *Secure Multi-Account Gmail Client*\n\n"
+            "Manage all your Gmail accounts in one place with "
+            "end-to-end encryption, real-time notifications, and "
+            "powerful search capabilities.\n\n"
+            "🚀 *Get Started:*\n"
+            "• Add your Gmail accounts securely\n"
+            "• Browse, search, and manage emails\n"
+            "• Receive instant notifications\n"
+            "• Organize with labels and filters\n\n"
+            "Choose an option below to begin:"
         )
         
         if update.message:
@@ -320,7 +328,7 @@ class BotHandlers:
             await query.answer()
         
         text = (
-            "ℹ️ *AutoXMail v2 Help*\n\n"
+            "ℹ️ *AutoXMail Help*\n\n"
             "*Features:*\n"
             "• Multi-account Gmail support\n"
             "• Browse inbox, sent, labels\n"
@@ -338,7 +346,7 @@ class BotHandlers:
             "• Rate limiting\n"
             "• Session timeout\n\n"
             "*Support:*\n"
-            "GitHub: github.com/NanoToolz/AutoXMail_v2"
+            "GitHub: github.com/NanoToolz/AutoXMail_Bot"
         )
         
         keyboard = [[InlineKeyboardButton("« Back", callback_data="start")]]
@@ -355,6 +363,105 @@ class BotHandlers:
                 reply_markup=InlineKeyboardMarkup(keyboard),
                 parse_mode='Markdown'
             )
+    
+    async def settings(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show settings menu."""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = update.effective_user.id
+        settings = await db.get_notification_settings(user_id)
+        
+        notif_status = "✅ Enabled" if settings.get('enabled') else "❌ Disabled"
+        spam_filter = "✅ Yes" if settings.get('exclude_spam') else "❌ No"
+        promo_filter = "✅ Yes" if settings.get('exclude_promotions') else "❌ No"
+        
+        text = (
+            "⚙️ *Settings*\n\n"
+            f"*Notifications:* {notif_status}\n"
+            f"*Filter Spam:* {spam_filter}\n"
+            f"*Filter Promotions:* {promo_filter}\n\n"
+            "Configure your preferences below:"
+        )
+        
+        keyboard = [
+            [InlineKeyboardButton(
+                "🔔 Toggle Notifications",
+                callback_data="toggle_notifications"
+            )],
+            [InlineKeyboardButton(
+                "🚫 Toggle Spam Filter",
+                callback_data="toggle_spam_filter"
+            )],
+            [InlineKeyboardButton(
+                "📢 Toggle Promo Filter",
+                callback_data="toggle_promo_filter"
+            )],
+            [InlineKeyboardButton("« Back", callback_data="start")]
+        ]
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='Markdown'
+        )
+    
+    async def toggle_notifications(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Toggle notifications on/off."""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = update.effective_user.id
+        settings = await db.get_notification_settings(user_id)
+        
+        new_status = not settings.get('enabled', True)
+        await db.update_notification_settings(user_id, enabled=new_status)
+        
+        await query.answer(
+            f"✅ Notifications {'enabled' if new_status else 'disabled'}",
+            show_alert=True
+        )
+        
+        # Refresh settings
+        await self.settings(update, context)
+    
+    async def toggle_spam_filter(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Toggle spam filter."""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = update.effective_user.id
+        settings = await db.get_notification_settings(user_id)
+        
+        new_status = not settings.get('exclude_spam', True)
+        await db.update_notification_settings(user_id, exclude_spam=new_status)
+        
+        await query.answer(
+            f"✅ Spam filter {'enabled' if new_status else 'disabled'}",
+            show_alert=True
+        )
+        
+        # Refresh settings
+        await self.settings(update, context)
+    
+    async def toggle_promo_filter(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Toggle promotions filter."""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = update.effective_user.id
+        settings = await db.get_notification_settings(user_id)
+        
+        new_status = not settings.get('exclude_promotions', True)
+        await db.update_notification_settings(user_id, exclude_promotions=new_status)
+        
+        await query.answer(
+            f"✅ Promotions filter {'enabled' if new_status else 'disabled'}",
+            show_alert=True
+        )
+        
+        # Refresh settings
+        await self.settings(update, context)
 
 
 # Global handlers instance
