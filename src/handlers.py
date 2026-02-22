@@ -688,11 +688,83 @@ class BotHandlers:
         # Refresh settings
         await self.settings(update, context)
 
+    async def star_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Star/unstar a message."""
+        query = update.callback_query
+        await query.answer()
+        
+        parts = query.data.split(":")
+        account_id = int(parts[1])
+        message_id = parts[2]
+        
+        try:
+            await gmail_service.add_label(account_id, message_id, 'STARRED')
+            await query.answer("⭐ Starred!", show_alert=True)
+        except Exception as e:
+            logger.error(f"Star message error: {e}")
+            await query.answer(f"❌ Failed: {str(e)[:50]}", show_alert=True)
+
+    async def spam_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Mark message as spam."""
+        query = update.callback_query
+        await query.answer()
+        
+        parts = query.data.split(":")
+        account_id = int(parts[1])
+        message_id = parts[2]
+        
+        try:
+            await gmail_service.mark_as_spam(account_id, message_id)
+            await query.answer("🚫 Marked as spam", show_alert=True)
+            await query.delete_message()
+        except Exception as e:
+            logger.error(f"Spam message error: {e}")
+            await query.answer(f"❌ Failed: {str(e)[:50]}", show_alert=True)
+
+    async def select_account(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Select active Gmail account."""
+        query = update.callback_query
+        await query.answer()
+        
+        account_id = int(query.data.split(":")[1])
+        user_id = update.effective_user.id
+        
+        # Get account details
+        account = await db.get_gmail_account(account_id)
+        if not account or account['user_id'] != user_id:
+            await query.edit_message_text("❌ Account not found.")
+            return
+        
+        # Set as active account
+        context.user_data['active_account_id'] = account_id
+        
+        # Show account menu
+        keyboard = [
+            [InlineKeyboardButton(f"📥 {to_tiny_caps('Inbox')}", callback_data=f"inbox")],
+            [InlineKeyboardButton(f"✉️ {to_tiny_caps('Compose')}", callback_data=f"compose")],
+            [InlineKeyboardButton(f"🔍 {to_tiny_caps('Search')}", callback_data=f"search")],
+            [InlineKeyboardButton(f"🏷️ {to_tiny_caps('Labels')}", callback_data=f"labels")],
+            [InlineKeyboardButton(f"📁 {to_tiny_caps('Folders')}", callback_data=f"folders")],
+            [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back to Accounts')}", callback_data="accounts")]
+        ]
+        
+        text = (
+            f"✅ *{to_tiny_caps('Account Selected')}*\n"
+            f"`────────────────────────`\n\n"
+            f"📧 {escape_markdown(account['email'])}\n\n"
+            f"What would you like to do?"
+        )
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='MarkdownV2'
+        )
 
     async def unknown_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle unknown input."""
-        # Skip if waiting for specific input
-        if context.user_data.get('state'):
+        # Skip if waiting for specific input (OAuth, compose, reply, forward, blocklist, VIP, etc.)
+        if context.user_data.get('state') or context.user_data.get('waiting_for'):
             return
         
         # Delete user's message immediately

@@ -20,6 +20,7 @@ from telegram.ext import (
 )
 import config
 from database import db
+from gmail_service import gmail_service
 from handlers import handlers
 from oauth_handler import oauth_handler
 from email_handlers import email_handlers, SELECT_FROM, ENTER_TO, ENTER_SUBJECT, ENTER_BODY, CONFIRM
@@ -314,10 +315,11 @@ def main():
     async def advanced_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle advanced features if in correct state."""
         waiting_for = context.user_data.get('waiting_for')
-        if waiting_for == 'blocklist_email':
+        if waiting_for == 'blocklist_add':  # Fixed: was 'blocklist_email'
             await advanced_handlers.add_to_blocklist_handler(update, context)
-        elif waiting_for == 'vip_email':
+        elif waiting_for == 'vip_add':  # Fixed: was 'vip_email'
             await advanced_handlers.add_vip_sender_handler(update, context)
+
     
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
@@ -328,10 +330,13 @@ def main():
     app.add_handler(CallbackQueryHandler(handlers.verify_join, pattern="^verify_join$"))
     app.add_handler(CallbackQueryHandler(handlers.start, pattern="^start$"))
     app.add_handler(CallbackQueryHandler(handlers.accounts, pattern="^accounts$"))
+    app.add_handler(CallbackQueryHandler(handlers.select_account, pattern="^select_account:"))
     app.add_handler(CallbackQueryHandler(handlers.inbox, pattern="^inbox$"))
     app.add_handler(CallbackQueryHandler(handlers.view_message, pattern="^view_msg:"))
     app.add_handler(CallbackQueryHandler(handlers.mark_read, pattern="^mark_read:"))
     app.add_handler(CallbackQueryHandler(handlers.mark_unread, pattern="^mark_unread:"))
+    app.add_handler(CallbackQueryHandler(handlers.star_message, pattern="^star:"))
+    app.add_handler(CallbackQueryHandler(handlers.spam_message, pattern="^spam:"))
     app.add_handler(CallbackQueryHandler(handlers.delete_message, pattern="^delete:"))
     app.add_handler(CallbackQueryHandler(handlers.confirm_delete, pattern="^confirm_delete:"))
     app.add_handler(CallbackQueryHandler(handlers.help_command, pattern="^help$"))

@@ -507,14 +507,15 @@ class AdvancedHandlers:
         msg_id = parts[3]
 
         try:
-            service = await gmail_service.get_service(account_id)
-            message = await gmail_service.get_message(service, msg_id)
+            # Fixed: Pass account_id directly, not service object
+            message = await gmail_service.get_message(account_id, msg_id)
             
             sender = message.get('from', '')
             sender_match = re.search(r'<(.+?)>', sender)
             sender_email = sender_match.group(1) if sender_match else sender.strip()
 
-            success = await gmail_service.unsubscribe_email(service, msg_id)
+            # Fixed: Pass account_id directly, not service object
+            success = await gmail_service.unsubscribe_email(account_id, msg_id)
 
             async with aiosqlite.connect(db.db_path) as conn:
                 try:
