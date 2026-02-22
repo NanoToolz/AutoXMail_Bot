@@ -18,6 +18,59 @@ class OAuthHandler:
     def __init__(self):
         self.flows = {}  # Store active OAuth flows
     
+    async def force_add_account(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Force add account despite warning."""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = update.effective_user.id
+        force_data = context.user_data.get('oauth_force_data')
+        
+        if not force_data:
+            await query.edit_message_text(
+                f"❌ {escape_markdown('Session expired. Please try again.')}",
+                parse_mode='MarkdownV2'
+            )
+            return
+        
+        try:
+            email = force_data['email']
+            credentials_json = force_data['credentials_json']
+            token_info = force_data['token_info']
+            
+            # Encrypt credentials and token
+            credentials_enc, _ = encrypt_credentials(credentials_json, user_id)
+            token_enc = encrypt_token(json.dumps(token_info), user_id)
+            
+            # Save to database
+            await db.add_gmail_account(user_id, email, credentials_enc, token_enc)
+            
+            # Cleanup
+            context.user_data.pop('oauth_force_data', None)
+            
+            # Success message
+            text = (
+                f"✅ *{to_tiny_caps('Account Added Successfully')}\\!*\n"
+                f"`────────────────────────`\n\n"
+                f"📧 Email: {escape_markdown(email)}\n\n"
+                f"Your Gmail account is now connected\\.\n"
+                f"All credentials are encrypted and stored securely\\."
+            )
+            
+            keyboard = [[InlineKeyboardButton(f"📬 {to_tiny_caps('View Inbox')}", callback_data="inbox")]]
+            
+            await query.edit_message_text(
+                text,
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='MarkdownV2'
+            )
+            
+        except Exception as e:
+            await query.edit_message_text(
+                f"❌ {escape_markdown(f'Failed to add account: {str(e)}')}",
+                parse_mode='MarkdownV2'
+            )
+    
     async def start_oauth(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start OAuth flow for adding Gmail account."""
         query = update.callback_query
@@ -217,6 +270,54 @@ class OAuthHandler:
             service = build('gmail', 'v1', credentials=creds)
             profile = service.users().getProfile(userId='me').execute()
             email = profile['emailAddress']
+            
+            # Extract API project email from credentials
+            creds_info = json.loads(credentials_json)
+            api_project_email = None
+            if 'installed' in creds_info:
+                api_project_email = creds_info['installed'].get('client_email')
+            elif 'web' in creds_info:
+                api_project_email = creds_info['web'].get('client_email')
+            
+            # Check if user is trying to add API project email
+            if api_project_email and email == api_project_email:
+                # Show warning
+                keyboard = [
+                    [
+                        InlineKeyboardButton(
+                            f"⚠️ {to_tiny_caps('Add Anyway')}",
+                            callback_data=f"oauth_force_add:{session_id}"
+                        ),
+                        InlineKeyboardButton(
+                            f"🔙 {to_tiny_caps('Cancel')}",
+                            callback_data="accounts"
+                        )
+                    ]
+                ]
+                
+                text = (
+                    f"⚠️ *{to_tiny_caps('Warning')}*\n"
+                    f"`────────────────────────`\n\n"
+                    f"You're trying to add the API project email\\.\n\n"
+                    f"This is usually not what you want\\. "
+                    f"Make sure you authorized the correct Gmail account\\.\n\n"
+                    f"Continue anyway?"
+                )
+                
+                await update.message.reply_text(
+                    text,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='MarkdownV2'
+                )
+                
+                # Store data for force add
+                context.user_data['oauth_force_data'] = {
+                    'email': email,
+                    'credentials_json': credentials_json,
+                    'token_info': token_info
+                }
+                
+                return
             
             # Prepare token info
             token_info = {

@@ -25,6 +25,7 @@ from search_handler import search_handler, SELECT_ACCOUNT, ENTER_QUERY
 from admin_handler import admin_handler
 from labels_handler import labels_handler
 from folders_handler import folders_handler
+from advanced_handlers import advanced_handlers
 
 # Setup logging
 logging.basicConfig(
@@ -147,6 +148,33 @@ def main():
     app.add_handler(CallbackQueryHandler(folders_handler.show_folders, pattern="^folders$"))
     app.add_handler(CallbackQueryHandler(folders_handler.select_folders_account, pattern="^folders_account:"))
     app.add_handler(CallbackQueryHandler(folders_handler.view_folder_emails, pattern="^folder_view:"))
+    
+    # Advanced handlers (blocklist, VIP, privacy, bot settings)
+    app.add_handler(CallbackQueryHandler(advanced_handlers.show_blocklist, pattern="^blocklist$"))
+    app.add_handler(CallbackQueryHandler(advanced_handlers.start_add_blocklist, pattern="^blocklist_add$"))
+    app.add_handler(CallbackQueryHandler(advanced_handlers.remove_from_blocklist, pattern="^blocklist_remove:"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, advanced_handlers.add_to_blocklist))
+    
+    app.add_handler(CallbackQueryHandler(advanced_handlers.show_vip_senders, pattern="^vip_senders$"))
+    app.add_handler(CallbackQueryHandler(advanced_handlers.start_add_vip, pattern="^vip_add$"))
+    app.add_handler(CallbackQueryHandler(advanced_handlers.remove_vip_sender, pattern="^vip_remove:"))
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, advanced_handlers.add_vip_sender))
+    
+    app.add_handler(CallbackQueryHandler(advanced_handlers.show_privacy_settings, pattern="^privacy_settings$"))
+    app.add_handler(CallbackQueryHandler(advanced_handlers.set_privacy_timer, pattern="^privacy_timer:"))
+    
+    app.add_handler(CallbackQueryHandler(advanced_handlers.show_bot_settings, pattern="^bot_settings$"))
+    app.add_handler(CallbackQueryHandler(advanced_handlers.start_change_photo, pattern="^bot_change_photo$"))
+    app.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, advanced_handlers.change_bot_photo))
+    
+    app.add_handler(CallbackQueryHandler(advanced_handlers.confirm_unsubscribe, pattern="^email:unsub:"))
+    app.add_handler(CallbackQueryHandler(advanced_handlers.unsubscribe_email, pattern="^email:unsub_confirm:"))
+    
+    # Inbox time range handlers
+    app.add_handler(CallbackQueryHandler(handlers.inbox_with_range, pattern="^inbox_range:"))
+    
+    # OAuth force add handler
+    app.add_handler(CallbackQueryHandler(oauth_handler.force_add_account, pattern="^oauth_force_add:"))
     
     # Email interaction handlers
     app.add_handler(CallbackQueryHandler(email_handlers.start_reply, pattern="^email:reply:"))

@@ -202,7 +202,7 @@ class BotHandlers:
         )
     
     async def inbox(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        """Show inbox messages."""
+        """Show inbox time range selector."""
         # Force join check
         if not await self.force_join_check(update, context):
             return
@@ -223,8 +223,66 @@ class BotHandlers:
             )
             return
         
+        # Show time range selector
+        keyboard = [
+            [
+                InlineKeyboardButton(f"⚡ {to_tiny_caps('1m')}", callback_data="inbox_time:1m"),
+                InlineKeyboardButton(f"🕐 {to_tiny_caps('5m')}", callback_data="inbox_time:5m"),
+                InlineKeyboardButton(f"🕐 {to_tiny_caps('30m')}", callback_data="inbox_time:30m")
+            ],
+            [
+                InlineKeyboardButton(f"📅 {to_tiny_caps('1h')}", callback_data="inbox_time:1h"),
+                InlineKeyboardButton(f"📅 {to_tiny_caps('6h')}", callback_data="inbox_time:6h"),
+                InlineKeyboardButton(f"📅 {to_tiny_caps('24h')}", callback_data="inbox_time:24h")
+            ],
+            [InlineKeyboardButton(f"🔍 {to_tiny_caps('Custom Search')}", callback_data="search")],
+            [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")]
+        ]
+        
+        text = (
+            f"📬 *{to_tiny_caps('Inbox')}*\n"
+            f"`────────────────────────`\n\n"
+            f"Select time range:"
+        )
+        
+        await query.edit_message_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='MarkdownV2'
+        )
+    
+    async def inbox_with_time(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Show inbox messages with time filter."""
+        query = update.callback_query
+        await query.answer()
+        
+        user_id = update.effective_user.id
+        accounts = await db.get_gmail_accounts(user_id)
+        
+        if not accounts:
+            return
+        
         # Use first account by default
         account_id = accounts[0]['id']
+        
+        # Parse time range
+        time_range = query.data.split(':')[1]
+        
+        # Build search query based on time
+        from datetime import datetime, timedelta
+        
+        time_map = {
+            '1m': timedelta(minutes=1),
+            '5m': timedelta(minutes=5),
+            '30m': timedelta(minutes=30),
+            '1h': timedelta(hours=1),
+            '6h': timedelta(hours=6),
+            '24h': timedelta(hours=24)
+        }
+        
+        delta = time_map.get(time_range, timedelta(hours=1))
+        after_date = datetime.now() - delta
+        search_query = f"after:{after_date.strftime('%Y/%m/%d')}"
         
         try:
             # Check rate limit
@@ -238,24 +296,30 @@ class BotHandlers:
                 )
                 return
             
-            result = await gmail_service.get_messages(account_id, 'INBOX', max_results=10)
-            messages = result['messages']
+            # Search with time filter
+            message_ids = await gmail_service.search_messages(account_id, search_query, max_results=20)
+            
+            if not message_ids:
+                messages = []
+            else:
+                messages = message_ids
             
             if not messages:
                 await query.edit_message_text(
-                    f"📭 {escape_markdown('Inbox is empty!')}",
+                    f"📭 {escape_markdown(f'No emails in last {time_range}!')}",
                     reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")
+                        InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="inbox")
                     ]]),
                     parse_mode='MarkdownV2'
                 )
                 return
             
             keyboard = []
-            text = f"📬 *{to_tiny_caps('Inbox')}* \\({result['resultSizeEstimate']} total\\)\n`────────────────────────`\n\n"
+            text = f"📬 *{to_tiny_caps('Inbox')}* \\(Last {escape_markdown(time_range)}\\)\n`────────────────────────`\n\n"
             
             for msg in messages[:10]:
-                full_msg = await gmail_service.get_message(account_id, msg['id'])
+                msg_id = msg['id'] if isinstance(msg, dict) else msg
+                full_msg = await gmail_service.get_message(account_id, msg_id)
                 subject, sender, date = parse_email_headers(full_msg)
                 
                 # Check if unread
@@ -268,12 +332,12 @@ class BotHandlers:
                 keyboard.append([
                     InlineKeyboardButton(
                         f"{icon} {truncate_text(subject, 35)}",
-                        callback_data=f"view_msg:{account_id}:{msg['id']}"
+                        callback_data=f"view_msg:{account_id}:{msg_id}"
                     )
                 ])
             
-            keyboard.append([InlineKeyboardButton(f"🔄 {to_tiny_caps('Refresh')}", callback_data="inbox")])
-            keyboard.append([InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")])
+            keyboard.append([InlineKeyboardButton(f"🔄 {to_tiny_caps('Refresh')}", callback_data=f"inbox_time:{time_range}")])
+            keyboard.append([InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="inbox")])
             
             await query.edit_message_text(
                 text,
@@ -338,7 +402,11 @@ class BotHandlers:
                 ],
                 [
                     InlineKeyboardButton(f"📄 {to_tiny_caps('Full Email')}", callback_data=f"email:full:{account_id}:{message_id}:1"),
-                    InlineKeyboardButton(f"⚠️ {to_tiny_caps('Spam')}", callback_data=f"spam:{account_id}:{message_id}")
+                    InlineKeyboardButton(f"🚫 {to_tiny_caps('Unsubscribe')}", callback_data=f"email:unsub:{account_id}:{message_id}")
+                ],
+                [
+                    InlineKeyboardButton(f"⚠️ {to_tiny_caps('Spam')}", callback_data=f"spam:{account_id}:{message_id}"),
+                    InlineKeyboardButton(f"⭐ {to_tiny_caps('Star')}", callback_data=f"star:{account_id}:{message_id}")
                 ],
                 [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back to Inbox')}", callback_data="inbox")]
             ]
@@ -512,6 +580,22 @@ class BotHandlers:
             [InlineKeyboardButton(
                 f"📢 {to_tiny_caps('Toggle Promo Filter')}",
                 callback_data="toggle_promo_filter"
+            )],
+            [InlineKeyboardButton(
+                f"🚫 {to_tiny_caps('Blocklist')}",
+                callback_data="blocklist"
+            )],
+            [InlineKeyboardButton(
+                f"⭐ {to_tiny_caps('VIP Senders')}",
+                callback_data="vip_senders"
+            )],
+            [InlineKeyboardButton(
+                f"🔒 {to_tiny_caps('Privacy')}",
+                callback_data="privacy_settings"
+            )],
+            [InlineKeyboardButton(
+                f"🤖 {to_tiny_caps('Bot Settings')}",
+                callback_data="bot_settings"
             )],
             [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")]
         ]
