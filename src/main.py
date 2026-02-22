@@ -89,6 +89,7 @@ def main():
     app.add_handler(CommandHandler("help", handlers.help_command))
     
     # Callback query handlers
+    app.add_handler(CallbackQueryHandler(handlers.verify_join, pattern="^verify_join$"))
     app.add_handler(CallbackQueryHandler(handlers.start, pattern="^start$"))
     app.add_handler(CallbackQueryHandler(handlers.accounts, pattern="^accounts$"))
     app.add_handler(CallbackQueryHandler(handlers.inbox, pattern="^inbox$"))
@@ -112,6 +113,12 @@ def main():
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
         oauth_handler.handle_auth_code
+    ))
+    
+    # Unknown input handler (MUST BE LAST)
+    app.add_handler(MessageHandler(
+        filters.ALL & ~filters.COMMAND,
+        handlers.unknown_handler
     ))
     
     # Error handler

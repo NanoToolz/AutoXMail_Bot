@@ -18,6 +18,7 @@ LOGS_DIR.mkdir(exist_ok=True)
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 ADMIN_CHAT_ID = os.getenv('ADMIN_CHAT_ID')  # For logs
 LOG_TOPIC_ID = os.getenv('LOG_TOPIC_ID')  # Optional: Telegram topic for logs
+FORCE_JOIN_CHANNEL = os.getenv('FORCE_JOIN_CHANNEL')  # Channel username (e.g., @yourchannel)
 
 # Database
 DB_PATH = DATA_DIR / 'autoxmail.db'
@@ -29,7 +30,7 @@ MASTER_KEY = os.getenv('MASTER_KEY')  # Master encryption key
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
 # Limits
-MAX_ACCOUNTS_PER_USER = int(os.getenv('MAX_ACCOUNTS_PER_USER', '3'))
+MAX_ACCOUNTS_PER_USER = int(os.getenv('MAX_ACCOUNTS_PER_USER', '75'))
 MAX_MESSAGE_LENGTH = 4000
 MEMORY_LIMIT_MB = 100
 

@@ -5,8 +5,11 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from google_auth_oauthlib.flow import Flow
 from database import db
-from crypto import crypto
+from crypto import encrypt_credentials, encrypt_token, decrypt_token
+from formatter import to_tiny_caps, escape_markdown
 import config
+import asyncio
+from auto_delete import schedule_delete, DELETE_IMMEDIATE
 
 
 class OAuthHandler:
@@ -25,35 +28,40 @@ class OAuthHandler:
         # Check account limit
         accounts = await db.get_gmail_accounts(user_id)
         if len(accounts) >= config.MAX_ACCOUNTS_PER_USER:
+            keyboard = [
+                [InlineKeyboardButton(f"⚙️ {to_tiny_caps('Manage Accounts')}", callback_data="accounts")],
+                [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="accounts")]
+            ]
+            
             await query.edit_message_text(
-                f"❌ *Account Limit Reached*\n\n"
-                f"You can add maximum {config.MAX_ACCOUNTS_PER_USER} accounts.\n"
-                f"Remove an account first to add a new one.",
-                reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("« Back", callback_data="accounts")
-                ]]),
-                parse_mode='Markdown'
+                f"⚠️ *{to_tiny_caps('Limit Reached')}*\n"
+                f"`────────────────────────`\n\n"
+                f"Maximum 75 Gmail accounts allowed\\.\n\n"
+                f"Remove an existing account to add a new one\\.",
+                reply_markup=InlineKeyboardMarkup(keyboard),
+                parse_mode='MarkdownV2'
             )
             return
         
         # Instructions
         text = (
-            "➕ *Add Gmail Account*\n\n"
-            "*Step 1:* Upload your credentials.json file\n\n"
-            "To get credentials.json:\n"
-            "1. Go to Google Cloud Console\n"
-            "2. Create OAuth 2.0 Client ID\n"
-            "3. Download credentials.json\n"
-            "4. Send the file here\n\n"
-            "⚠️ Your credentials will be encrypted and stored securely."
+            f"➕ *{to_tiny_caps('Add Gmail Account')}*\n"
+            f"`────────────────────────`\n\n"
+            f"*{to_tiny_caps('Step 1')}:* Upload your credentials\\.json file\n\n"
+            f"To get credentials\\.json:\n"
+            f"1\\. Go to Google Cloud Console\n"
+            f"2\\. Create OAuth 2\\.0 Client ID\n"
+            f"3\\. Download credentials\\.json\n"
+            f"4\\. Send the file here\n\n"
+            f"⚠️ Your credentials will be encrypted and stored securely\\."
         )
         
-        keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="accounts")]]
+        keyboard = [[InlineKeyboardButton(f"❌ {to_tiny_caps('Cancel')}", callback_data="accounts")]]
         
         await query.edit_message_text(
             text,
             reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode='Markdown'
+            parse_mode='MarkdownV2'
         )
         
         # Set state
@@ -64,14 +72,24 @@ class OAuthHandler:
         if context.user_data.get('state') != 'waiting_credentials':
             return
         
+        # DELETE CREDENTIALS FILE IMMEDIATELY
+        try:
+            await update.message.delete()
+        except:
+            pass
+        
         user_id = update.effective_user.id
         
         # Get document
         document = update.message.document
         if not document or not document.file_name.endswith('.json'):
-            await update.message.reply_text(
-                "❌ Please send a valid credentials.json file."
+            msg = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=f"❌ {escape_markdown('Please send a valid credentials.json file.')}",
+                parse_mode='MarkdownV2'
             )
+            # Auto-delete error message
+            asyncio.create_task(schedule_delete(context.bot, update.effective_chat.id, msg.message_id, 5))
             return
         
         try:
@@ -116,24 +134,26 @@ class OAuthHandler:
             
             # Send auth URL
             text = (
-                "✅ *Credentials Received*\n\n"
-                "*Step 2:* Authorize Gmail Access\n\n"
-                "1. Click the link below\n"
-                "2. Sign in to your Gmail account\n"
-                "3. Grant permissions\n"
-                "4. Copy the ENTIRE redirect URL\n"
-                "5. Send it back here\n\n"
+                f"✅ *{to_tiny_caps('Credentials Received')}*\n"
+                f"`────────────────────────`\n\n"
+                f"*{to_tiny_caps('Step 2')}:* Authorize Gmail Access\n\n"
+                f"1\\. Click the link below\n"
+                f"2\\. Sign in to your Gmail account\n"
+                f"3\\. Grant permissions\n"
+                f"4\\. Copy the ENTIRE redirect URL\n"
+                f"5\\. Send it back here\n\n"
                 f"[🔗 Click here to authorize]({auth_url})\n\n"
-                "After authorizing, send the URL that starts with:\n"
-                "`http://localhost/?code=...`"
+                f"After authorizing, send the URL that starts with:\n"
+                f"`http://localhost/?code=...`"
             )
             
-            keyboard = [[InlineKeyboardButton("❌ Cancel", callback_data="accounts")]]
+            keyboard = [[InlineKeyboardButton(f"❌ {to_tiny_caps('Cancel')}", callback_data="accounts")]]
             
-            await update.message.reply_text(
-                text,
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
+                parse_mode='MarkdownV2'
             )
             
             # Update state
@@ -141,10 +161,16 @@ class OAuthHandler:
             context.user_data['session_id'] = session_id
             
         except Exception as e:
-            await update.message.reply_text(
-                f"❌ Error processing credentials: {str(e)}\n\n"
-                "Please make sure you uploaded a valid credentials.json file."
+            msg = await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=(
+                    f"❌ {escape_markdown(f'Error processing credentials: {str(e)}')}\n\n"
+                    f"Please make sure you uploaded a valid credentials\\.json file\\."
+                ),
+                parse_mode='MarkdownV2'
             )
+            # Auto-delete error message
+            asyncio.create_task(schedule_delete(context.bot, update.effective_chat.id, msg.message_id, 10))
             context.user_data['state'] = None
     
     async def handle_auth_code(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -203,8 +229,8 @@ class OAuthHandler:
             }
             
             # Encrypt credentials and token
-            credentials_enc = crypto.encrypt_credentials(credentials_json, user_id)
-            token_enc = crypto.encrypt_token(json.dumps(token_info), user_id)
+            credentials_enc, _ = encrypt_credentials(credentials_json, user_id)
+            token_enc = encrypt_token(json.dumps(token_info), user_id)
             
             # Save to database
             await db.add_gmail_account(user_id, email, credentials_enc, token_enc)
@@ -216,27 +242,29 @@ class OAuthHandler:
             
             # Success message
             text = (
-                "✅ *Account Added Successfully!*\n\n"
-                f"📧 Email: {email}\n\n"
-                "Your Gmail account is now connected.\n"
-                "All credentials are encrypted and stored securely."
+                f"✅ *{to_tiny_caps('Account Added Successfully')}\\!*\n"
+                f"`────────────────────────`\n\n"
+                f"📧 Email: {escape_markdown(email)}\n\n"
+                f"Your Gmail account is now connected\\.\n"
+                f"All credentials are encrypted and stored securely\\."
             )
             
-            keyboard = [[InlineKeyboardButton("📬 View Inbox", callback_data="inbox")]]
+            keyboard = [[InlineKeyboardButton(f"📬 {to_tiny_caps('View Inbox')}", callback_data="inbox")]]
             
             await update.message.reply_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
+                parse_mode='MarkdownV2'
             )
             
         except Exception as e:
             await update.message.reply_text(
-                f"❌ Authorization failed: {str(e)}\n\n"
-                "Please make sure you:\n"
-                "1. Copied the entire URL correctly\n"
-                "2. Authorized the correct account\n\n"
-                "Try again with /start"
+                f"❌ {escape_markdown(f'Authorization failed: {str(e)}')}\n\n"
+                f"Please make sure you:\n"
+                f"1\\. Copied the entire URL correctly\n"
+                f"2\\. Authorized the correct account\n\n"
+                f"Try again with /start",
+                parse_mode='MarkdownV2'
             )
             context.user_data['state'] = None
 

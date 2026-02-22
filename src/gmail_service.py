@@ -5,7 +5,7 @@ from google.oauth2.credentials import Credentials
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 import config
-from crypto import crypto
+from crypto import decrypt_token, encrypt_token
 from database import db
 
 
@@ -27,7 +27,7 @@ class GmailService:
             raise ValueError("Account not found")
         
         # Decrypt token
-        token_data = crypto.decrypt_token(account['token_enc'], account['user_id'])
+        token_data = decrypt_token(account['token_enc'], account['user_id'])
         token_info = json.loads(token_data)
         
         # Create credentials
@@ -53,7 +53,7 @@ class GmailService:
                 'client_secret': creds.client_secret,
                 'scopes': creds.scopes
             }
-            token_enc = crypto.encrypt_token(
+            token_enc = encrypt_token(
                 json.dumps(new_token_info), 
                 account['user_id']
             )

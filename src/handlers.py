@@ -1,20 +1,103 @@
 """Telegram bot handlers."""
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatMember
 from telegram.ext import ContextTypes
 from database import db
 from gmail_service import gmail_service
+from formatter import to_tiny_caps, escape_markdown, format_button_text
 from utils import (
     parse_email_headers, get_message_body, extract_otp,
-    truncate_text, escape_markdown, format_timestamp, split_message
+    truncate_text, format_timestamp, split_message
 )
+from auto_delete import schedule_delete, DELETE_WARNING
 import config
+import asyncio
 
 
 class BotHandlers:
     """Main bot command and callback handlers."""
     
+    async def force_join_check(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> bool:
+        """Check if user has joined required channel.
+        
+        Returns:
+            True if check passed or no channel required, False if blocked
+        """
+        # Skip if no channel configured
+        if not config.FORCE_JOIN_CHANNEL:
+            return True
+        
+        user_id = update.effective_user.id
+        
+        # Skip for admin
+        if str(user_id) == config.ADMIN_CHAT_ID:
+            return True
+        
+        try:
+            # Check membership
+            member = await context.bot.get_chat_member(
+                chat_id=config.FORCE_JOIN_CHANNEL,
+                user_id=user_id
+            )
+            
+            # Allow if member or admin
+            if member.status in [ChatMember.MEMBER, ChatMember.ADMINISTRATOR, ChatMember.OWNER]:
+                return True
+            
+            # User not a member - show join message
+            keyboard = [
+                [InlineKeyboardButton(
+                    f"📢 {to_tiny_caps('Join Channel')}",
+                    url=f"https://t.me/{config.FORCE_JOIN_CHANNEL.lstrip('@')}"
+                )],
+                [InlineKeyboardButton(
+                    f"✅ {to_tiny_caps('I have Joined')}",
+                    callback_data="verify_join"
+                )]
+            ]
+            
+            text = (
+                f"⚠️ *{to_tiny_caps('Join Required')}*\n"
+                f"`────────────────────────`\n\n"
+                f"Please join our channel to use this bot\\.\n\n"
+                f"After joining, click the button below\\."
+            )
+            
+            if update.callback_query:
+                await update.callback_query.answer(
+                    "❌ Please join the channel first!",
+                    show_alert=True
+                )
+            elif update.message:
+                await update.message.reply_text(
+                    text,
+                    reply_markup=InlineKeyboardMarkup(keyboard),
+                    parse_mode='MarkdownV2'
+                )
+            
+            return False
+            
+        except Exception as e:
+            # If channel check fails, allow access (channel might be misconfigured)
+            return True
+    
+    async def verify_join(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Verify user joined the channel."""
+        query = update.callback_query
+        
+        # Check membership again
+        if await self.force_join_check(update, context):
+            await query.answer("✅ Verified! Welcome!", show_alert=True)
+            # Show main menu
+            await self.start(update, context)
+        else:
+            await query.answer("❌ You haven't joined yet!", show_alert=True)
+    
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Start command - Main menu."""
+        # Force join check
+        if not await self.force_join_check(update, context):
+            return
+        
         user = update.effective_user
         
         # Register user
@@ -22,51 +105,55 @@ class BotHandlers:
         
         keyboard = [
             [
-                InlineKeyboardButton("📧 My Accounts", callback_data="accounts"),
-                InlineKeyboardButton("➕ Add Account", callback_data="add_account")
+                InlineKeyboardButton(f"📧 {to_tiny_caps('My Accounts')}", callback_data="accounts"),
+                InlineKeyboardButton(f"➕ {to_tiny_caps('Add Account')}", callback_data="add_account")
             ],
             [
-                InlineKeyboardButton("📬 Inbox", callback_data="inbox"),
-                InlineKeyboardButton("🔍 Search", callback_data="search")
+                InlineKeyboardButton(f"📬 {to_tiny_caps('Inbox')}", callback_data="inbox"),
+                InlineKeyboardButton(f"🔍 {to_tiny_caps('Search')}", callback_data="search")
             ],
             [
-                InlineKeyboardButton("🏷️ Labels", callback_data="labels"),
-                InlineKeyboardButton("⚙️ Settings", callback_data="settings")
+                InlineKeyboardButton(f"🏷️ {to_tiny_caps('Labels')}", callback_data="labels"),
+                InlineKeyboardButton(f"⚙️ {to_tiny_caps('Settings')}", callback_data="settings")
             ],
             [
-                InlineKeyboardButton("ℹ️ Help", callback_data="help")
+                InlineKeyboardButton(f"ℹ️ {to_tiny_caps('Help')}", callback_data="help")
             ]
         ]
         
         message = (
-            "✨ *Welcome to AutoXMail*\n\n"
-            "🔐 *Secure Multi-Account Gmail Client*\n\n"
-            "Manage all your Gmail accounts in one place with "
-            "end-to-end encryption, real-time notifications, and "
-            "powerful search capabilities.\n\n"
-            "🚀 *Get Started:*\n"
-            "• Add your Gmail accounts securely\n"
-            "• Browse, search, and manage emails\n"
-            "• Receive instant notifications\n"
-            "• Organize with labels and filters\n\n"
-            "Choose an option below to begin:"
+            f"✨ *{to_tiny_caps('Welcome to AutoXMail')}*\n\n"
+            f"🔐 *{to_tiny_caps('Secure Multi-Account Gmail Client')}*\n\n"
+            f"Manage all your Gmail accounts in one place with "
+            f"end\\-to\\-end encryption, real\\-time notifications, and "
+            f"powerful search capabilities\\.\n\n"
+            f"🚀 *{to_tiny_caps('Get Started')}:*\n"
+            f"• Add your Gmail accounts securely\n"
+            f"• Browse, search, and manage emails\n"
+            f"• Receive instant notifications\n"
+            f"• Organize with labels and filters\n\n"
+            f"Choose an option below to begin:"
         )
         
         if update.message:
             await update.message.reply_text(
                 message,
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
+                parse_mode='MarkdownV2'
             )
         else:
             await update.callback_query.edit_message_text(
                 message,
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
+                parse_mode='MarkdownV2'
             )
     
     async def accounts(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show user's Gmail accounts."""
+        # Force join check
+        if not await self.force_join_check(update, context):
+            return
+        
         query = update.callback_query
         await query.answer()
         
@@ -75,24 +162,25 @@ class BotHandlers:
         
         if not accounts:
             keyboard = [
-                [InlineKeyboardButton("➕ Add Account", callback_data="add_account")],
-                [InlineKeyboardButton("« Back", callback_data="start")]
+                [InlineKeyboardButton(f"➕ {to_tiny_caps('Add Account')}", callback_data="add_account")],
+                [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")]
             ]
             
             await query.edit_message_text(
-                "📧 *My Accounts*\n\n"
-                "No accounts added yet.\n\n"
-                "Add your first Gmail account to get started!",
+                f"📧 *{to_tiny_caps('My Accounts')}*\n"
+                f"`────────────────────────`\n\n"
+                f"No accounts added yet\\.\n\n"
+                f"Add your first Gmail account to get started\\!",
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
+                parse_mode='MarkdownV2'
             )
             return
         
         keyboard = []
-        message = "📧 *My Accounts*\n\n"
+        message = f"📧 *{to_tiny_caps('My Accounts')}*\n`────────────────────────`\n\n"
         
         for acc in accounts:
-            message += f"• {acc['email']}\n"
+            message += f"• {escape_markdown(acc['email'])}\n"
             keyboard.append([
                 InlineKeyboardButton(
                     f"📬 {truncate_text(acc['email'], 30)}",
@@ -100,17 +188,21 @@ class BotHandlers:
                 )
             ])
         
-        keyboard.append([InlineKeyboardButton("➕ Add Account", callback_data="add_account")])
-        keyboard.append([InlineKeyboardButton("« Back", callback_data="start")])
+        keyboard.append([InlineKeyboardButton(f"➕ {to_tiny_caps('Add Account')}", callback_data="add_account")])
+        keyboard.append([InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")])
         
         await query.edit_message_text(
             message,
             reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode='Markdown'
+            parse_mode='MarkdownV2'
         )
     
     async def inbox(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show inbox messages."""
+        # Force join check
+        if not await self.force_join_check(update, context):
+            return
+        
         query = update.callback_query
         await query.answer()
         
@@ -119,10 +211,11 @@ class BotHandlers:
         
         if not accounts:
             await query.edit_message_text(
-                "❌ No accounts found. Add an account first!",
+                f"❌ {escape_markdown('No accounts found. Add an account first!')}",
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("« Back", callback_data="start")
-                ]])
+                    InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")
+                ]]),
+                parse_mode='MarkdownV2'
             )
             return
         
@@ -133,10 +226,11 @@ class BotHandlers:
             # Check rate limit
             if not await db.check_rate_limit(user_id, 'inbox'):
                 await query.edit_message_text(
-                    "⚠️ Rate limit exceeded. Please wait a moment.",
+                    f"⚠️ {escape_markdown('Rate limit exceeded. Please wait a moment.')}",
                     reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("« Back", callback_data="start")
-                    ]])
+                        InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")
+                    ]]),
+                    parse_mode='MarkdownV2'
                 )
                 return
             
@@ -145,15 +239,16 @@ class BotHandlers:
             
             if not messages:
                 await query.edit_message_text(
-                    "📭 Inbox is empty!",
+                    f"📭 {escape_markdown('Inbox is empty!')}",
                     reply_markup=InlineKeyboardMarkup([[
-                        InlineKeyboardButton("« Back", callback_data="start")
-                    ]])
+                        InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")
+                    ]]),
+                    parse_mode='MarkdownV2'
                 )
                 return
             
             keyboard = []
-            text = f"📬 *Inbox* ({result['resultSizeEstimate']} total)\n\n"
+            text = f"📬 *{to_tiny_caps('Inbox')}* \\({result['resultSizeEstimate']} total\\)\n`────────────────────────`\n\n"
             
             for msg in messages[:10]:
                 full_msg = await gmail_service.get_message(account_id, msg['id'])
@@ -163,8 +258,8 @@ class BotHandlers:
                 is_unread = 'UNREAD' in full_msg.get('labelIds', [])
                 icon = "🔵" if is_unread else "⚪"
                 
-                text += f"{icon} {truncate_text(subject, 40)}\n"
-                text += f"   From: {truncate_text(sender, 30)}\n\n"
+                text += f"{icon} {escape_markdown(truncate_text(subject, 40))}\n"
+                text += f"   From: {escape_markdown(truncate_text(sender, 30))}\n\n"
                 
                 keyboard.append([
                     InlineKeyboardButton(
@@ -173,25 +268,30 @@ class BotHandlers:
                     )
                 ])
             
-            keyboard.append([InlineKeyboardButton("🔄 Refresh", callback_data="inbox")])
-            keyboard.append([InlineKeyboardButton("« Back", callback_data="start")])
+            keyboard.append([InlineKeyboardButton(f"🔄 {to_tiny_caps('Refresh')}", callback_data="inbox")])
+            keyboard.append([InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")])
             
             await query.edit_message_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
+                parse_mode='MarkdownV2'
             )
             
         except Exception as e:
             await query.edit_message_text(
-                f"❌ Error: {str(e)}",
+                f"❌ {escape_markdown(f'Error: {str(e)}')}",
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("« Back", callback_data="start")
-                ]])
+                    InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")
+                ]]),
+                parse_mode='MarkdownV2'
             )
     
     async def view_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """View full message."""
+        # Force join check
+        if not await self.force_join_check(update, context):
+            return
+        
         query = update.callback_query
         await query.answer()
         
@@ -206,15 +306,15 @@ class BotHandlers:
             body = get_message_body(message['payload'])
             otp = extract_otp(body)
             
-            text = f"📧 *Message*\n\n"
-            text += f"*Subject:* {escape_markdown(subject)}\n"
-            text += f"*From:* {escape_markdown(sender)}\n"
-            text += f"*Date:* {format_timestamp(date)}\n\n"
+            text = f"📧 *{to_tiny_caps('Message')}*\n`────────────────────────`\n\n"
+            text += f"*{to_tiny_caps('Subject')}:* {escape_markdown(subject)}\n"
+            text += f"*{to_tiny_caps('From')}:* {escape_markdown(sender)}\n"
+            text += f"*{to_tiny_caps('Date')}:* {escape_markdown(format_timestamp(date))}\n\n"
             
             if otp:
-                text += f"🔑 *OTP:* `{otp}`\n\n"
+                text += f"🔑 *{to_tiny_caps('OTP')}:* `{otp}`\n\n"
             
-            text += f"*Preview:*\n{escape_markdown(truncate_text(body, 500))}\n"
+            text += f"*{to_tiny_caps('Preview')}:*\n{escape_markdown(truncate_text(body, 500))}\n"
             
             # Action buttons
             is_unread = 'UNREAD' in message.get('labelIds', [])
@@ -222,31 +322,32 @@ class BotHandlers:
             keyboard = [
                 [
                     InlineKeyboardButton(
-                        "✅ Mark Read" if is_unread else "📧 Mark Unread",
+                        f"✅ {to_tiny_caps('Mark Read')}" if is_unread else f"📧 {to_tiny_caps('Mark Unread')}",
                         callback_data=f"mark_read:{account_id}:{message_id}" if is_unread 
                                     else f"mark_unread:{account_id}:{message_id}"
                     ),
-                    InlineKeyboardButton("🗑️ Delete", callback_data=f"delete:{account_id}:{message_id}")
+                    InlineKeyboardButton(f"🗑️ {to_tiny_caps('Delete')}", callback_data=f"delete:{account_id}:{message_id}")
                 ],
                 [
-                    InlineKeyboardButton("⚠️ Spam", callback_data=f"spam:{account_id}:{message_id}"),
-                    InlineKeyboardButton("🏷️ Labels", callback_data=f"msg_labels:{account_id}:{message_id}")
+                    InlineKeyboardButton(f"⚠️ {to_tiny_caps('Spam')}", callback_data=f"spam:{account_id}:{message_id}"),
+                    InlineKeyboardButton(f"🏷️ {to_tiny_caps('Labels')}", callback_data=f"msg_labels:{account_id}:{message_id}")
                 ],
-                [InlineKeyboardButton("« Back to Inbox", callback_data="inbox")]
+                [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back to Inbox')}", callback_data="inbox")]
             ]
             
             await query.edit_message_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
+                parse_mode='MarkdownV2'
             )
             
         except Exception as e:
             await query.edit_message_text(
-                f"❌ Error: {str(e)}",
+                f"❌ {escape_markdown(f'Error: {str(e)}')}",
                 reply_markup=InlineKeyboardMarkup([[
-                    InlineKeyboardButton("« Back", callback_data="inbox")
-                ]])
+                    InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="inbox")
+                ]]),
+                parse_mode='MarkdownV2'
             )
     
     async def mark_read(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -292,16 +393,17 @@ class BotHandlers:
         # Confirmation
         keyboard = [
             [
-                InlineKeyboardButton("✅ Yes, Delete", callback_data=f"confirm_delete:{account_id}:{message_id}"),
-                InlineKeyboardButton("❌ Cancel", callback_data=f"view_msg:{account_id}:{message_id}")
+                InlineKeyboardButton(f"✅ {to_tiny_caps('Yes, Delete')}", callback_data=f"confirm_delete:{account_id}:{message_id}"),
+                InlineKeyboardButton(f"❌ {to_tiny_caps('Cancel')}", callback_data=f"view_msg:{account_id}:{message_id}")
             ]
         ]
         
         await query.edit_message_text(
-            "🗑️ *Delete Message*\n\n"
-            "Are you sure you want to move this message to trash?",
+            f"🗑️ *{to_tiny_caps('Delete Message')}*\n"
+            f"`────────────────────────`\n\n"
+            f"Are you sure you want to move this message to trash?",
             reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode='Markdown'
+            parse_mode='MarkdownV2'
         )
     
     async def confirm_delete(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -328,44 +430,49 @@ class BotHandlers:
             await query.answer()
         
         text = (
-            "ℹ️ *AutoXMail Help*\n\n"
-            "*Features:*\n"
-            "• Multi-account Gmail support\n"
-            "• Browse inbox, sent, labels\n"
-            "• Search messages\n"
-            "• Mark read/unread\n"
-            "• Delete & spam management\n"
-            "• Label management\n"
-            "• Push notifications\n\n"
-            "*Commands:*\n"
-            "/start - Main menu\n"
-            "/help - This help message\n\n"
-            "*Security:*\n"
-            "• End-to-end encryption\n"
-            "• Per-user credential isolation\n"
-            "• Rate limiting\n"
-            "• Session timeout\n\n"
-            "*Support:*\n"
-            "GitHub: github.com/NanoToolz/AutoXMail_Bot"
+            f"ℹ️ *{to_tiny_caps('AutoXMail Help')}*\n"
+            f"`────────────────────────`\n\n"
+            f"*{to_tiny_caps('Features')}:*\n"
+            f"• Multi\\-account Gmail support\n"
+            f"• Browse inbox, sent, labels\n"
+            f"• Search messages\n"
+            f"• Mark read/unread\n"
+            f"• Delete \\& spam management\n"
+            f"• Label management\n"
+            f"• Push notifications\n\n"
+            f"*{to_tiny_caps('Commands')}:*\n"
+            f"/start \\- Main menu\n"
+            f"/help \\- This help message\n\n"
+            f"*{to_tiny_caps('Security')}:*\n"
+            f"• End\\-to\\-end encryption\n"
+            f"• Per\\-user credential isolation\n"
+            f"• Rate limiting\n"
+            f"• Session timeout\n\n"
+            f"*{to_tiny_caps('Support')}:*\n"
+            f"GitHub: github\\.com/NanoToolz/AutoXMail\\_Bot"
         )
         
-        keyboard = [[InlineKeyboardButton("« Back", callback_data="start")]]
+        keyboard = [[InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")]]
         
         if query:
             await query.edit_message_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
+                parse_mode='MarkdownV2'
             )
         else:
             await update.message.reply_text(
                 text,
                 reply_markup=InlineKeyboardMarkup(keyboard),
-                parse_mode='Markdown'
+                parse_mode='MarkdownV2'
             )
     
     async def settings(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Show settings menu."""
+        # Force join check
+        if not await self.force_join_check(update, context):
+            return
+        
         query = update.callback_query
         await query.answer()
         
@@ -377,33 +484,34 @@ class BotHandlers:
         promo_filter = "✅ Yes" if settings.get('exclude_promotions') else "❌ No"
         
         text = (
-            "⚙️ *Settings*\n\n"
-            f"*Notifications:* {notif_status}\n"
-            f"*Filter Spam:* {spam_filter}\n"
-            f"*Filter Promotions:* {promo_filter}\n\n"
-            "Configure your preferences below:"
+            f"⚙️ *{to_tiny_caps('Settings')}*\n"
+            f"`────────────────────────`\n\n"
+            f"*{to_tiny_caps('Notifications')}:* {escape_markdown(notif_status)}\n"
+            f"*{to_tiny_caps('Filter Spam')}:* {escape_markdown(spam_filter)}\n"
+            f"*{to_tiny_caps('Filter Promotions')}:* {escape_markdown(promo_filter)}\n\n"
+            f"Configure your preferences below:"
         )
         
         keyboard = [
             [InlineKeyboardButton(
-                "🔔 Toggle Notifications",
+                f"🔔 {to_tiny_caps('Toggle Notifications')}",
                 callback_data="toggle_notifications"
             )],
             [InlineKeyboardButton(
-                "🚫 Toggle Spam Filter",
+                f"🚫 {to_tiny_caps('Toggle Spam Filter')}",
                 callback_data="toggle_spam_filter"
             )],
             [InlineKeyboardButton(
-                "📢 Toggle Promo Filter",
+                f"📢 {to_tiny_caps('Toggle Promo Filter')}",
                 callback_data="toggle_promo_filter"
             )],
-            [InlineKeyboardButton("« Back", callback_data="start")]
+            [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")]
         ]
         
         await query.edit_message_text(
             text,
             reply_markup=InlineKeyboardMarkup(keyboard),
-            parse_mode='Markdown'
+            parse_mode='MarkdownV2'
         )
     
     async def toggle_notifications(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -462,6 +570,42 @@ class BotHandlers:
         
         # Refresh settings
         await self.settings(update, context)
+
+
+    async def unknown_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle unknown input."""
+        # Skip if waiting for specific input
+        if context.user_data.get('state'):
+            return
+        
+        # Delete user's message immediately
+        try:
+            await update.message.delete()
+        except:
+            pass
+        
+        # Send warning
+        keyboard = [[InlineKeyboardButton(f"🏠 {to_tiny_caps('Main Menu')}", callback_data="start")]]
+        
+        text = (
+            f"⚠️ *{to_tiny_caps('Unknown Input')}*\n"
+            f"`────────────────────────`\n\n"
+            f"Please use the buttons below\\."
+        )
+        
+        msg = await update.message.reply_text(
+            text,
+            reply_markup=InlineKeyboardMarkup(keyboard),
+            parse_mode='MarkdownV2'
+        )
+        
+        # Auto-delete warning after 5 seconds
+        asyncio.create_task(schedule_delete(
+            context.bot,
+            update.effective_chat.id,
+            msg.message_id,
+            DELETE_WARNING
+        ))
 
 
 # Global handlers instance

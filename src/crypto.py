@@ -1,60 +1,130 @@
-"""Encryption utilities for credentials and tokens."""
+"""Encryption utilities using Fernet AES-128."""
+import os
+import base64
+import hashlib
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
-from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-import base64
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2
 import config
 
 
-class CryptoManager:
-    """Handle encryption/decryption of sensitive data."""
+def derive_key(password: str, salt: bytes) -> bytes:
+    """Derive encryption key from password using PBKDF2.
     
-    def __init__(self):
-        self.master_key = config.MASTER_KEY.encode()
-        self.salt = b'AutoXMail_v2_2026'
-    
-    def _derive_key(self, user_id: int) -> bytes:
-        """Derive user-specific encryption key."""
-        # Combine master key with user_id for per-user encryption
-        combined = self.master_key + str(user_id).encode()
+    Args:
+        password: Master password
+        salt: 16-byte salt
         
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=self.salt,
-            iterations=100000,
-        )
-        key = base64.urlsafe_b64encode(kdf.derive(combined))
-        return key
-    
-    def encrypt(self, data: bytes, user_id: int) -> bytes:
-        """Encrypt data for specific user."""
-        key = self._derive_key(user_id)
-        f = Fernet(key)
-        return f.encrypt(data)
-    
-    def decrypt(self, encrypted_data: bytes, user_id: int) -> bytes:
-        """Decrypt data for specific user."""
-        key = self._derive_key(user_id)
-        f = Fernet(key)
-        return f.decrypt(encrypted_data)
-    
-    def encrypt_credentials(self, credentials_json: str, user_id: int) -> bytes:
-        """Encrypt Gmail credentials JSON."""
-        return self.encrypt(credentials_json.encode(), user_id)
-    
-    def decrypt_credentials(self, encrypted_data: bytes, user_id: int) -> str:
-        """Decrypt Gmail credentials JSON."""
-        return self.decrypt(encrypted_data, user_id).decode()
-    
-    def encrypt_token(self, token_json: str, user_id: int) -> bytes:
-        """Encrypt Gmail token JSON."""
-        return self.encrypt(token_json.encode(), user_id)
-    
-    def decrypt_token(self, encrypted_data: bytes, user_id: int) -> str:
-        """Decrypt Gmail token JSON."""
-        return self.decrypt(encrypted_data, user_id).decode()
+    Returns:
+        32-byte key for Fernet
+    """
+    kdf = PBKDF2(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=salt,
+        iterations=100000,  # 100k iterations for security
+    )
+    return base64.urlsafe_b64encode(kdf.derive(password.encode()))
 
 
-# Global crypto instance
-crypto = CryptoManager()
+def generate_salt() -> bytes:
+    """Generate random 16-byte salt."""
+    return os.urandom(16)
+
+
+def encrypt(data: bytes, password: str, salt: bytes) -> bytes:
+    """Encrypt data using Fernet AES-128.
+    
+    Args:
+        data: Data to encrypt
+        password: Master password
+        salt: 16-byte salt
+        
+    Returns:
+        Encrypted data
+    """
+    key = derive_key(password, salt)
+    f = Fernet(key)
+    return f.encrypt(data)
+
+
+def decrypt(encrypted_data: bytes, password: str, salt: bytes) -> bytes:
+    """Decrypt data using Fernet AES-128.
+    
+    Args:
+        encrypted_data: Encrypted data
+        password: Master password
+        salt: 16-byte salt
+        
+    Returns:
+        Decrypted data
+    """
+    key = derive_key(password, salt)
+    f = Fernet(key)
+    return f.decrypt(encrypted_data)
+
+
+def encrypt_credentials(credentials_json: str, user_id: int) -> tuple[bytes, bytes]:
+    """Encrypt Gmail credentials.
+    
+    Args:
+        credentials_json: JSON string of credentials
+        user_id: User ID for salt generation
+        
+    Returns:
+        Tuple of (encrypted_data, salt)
+    """
+    # Generate per-user salt
+    salt = hashlib.sha256(f"{user_id}{config.MASTER_KEY}".encode()).digest()[:16]
+    
+    # Encrypt
+    encrypted = encrypt(credentials_json.encode(), config.MASTER_KEY, salt)
+    
+    return encrypted, salt
+
+
+def decrypt_credentials(encrypted_data: bytes, user_id: int) -> str:
+    """Decrypt Gmail credentials.
+    
+    Args:
+        encrypted_data: Encrypted credentials
+        user_id: User ID for salt generation
+        
+    Returns:
+        Decrypted JSON string
+    """
+    # Regenerate salt
+    salt = hashlib.sha256(f"{user_id}{config.MASTER_KEY}".encode()).digest()[:16]
+    
+    # Decrypt
+    decrypted = decrypt(encrypted_data, config.MASTER_KEY, salt)
+    
+    return decrypted.decode()
+
+
+def encrypt_token(token_json: str, user_id: int) -> bytes:
+    """Encrypt OAuth token.
+    
+    Args:
+        token_json: JSON string of token
+        user_id: User ID for salt generation
+        
+    Returns:
+        Encrypted token
+    """
+    salt = hashlib.sha256(f"{user_id}{config.MASTER_KEY}token".encode()).digest()[:16]
+    return encrypt(token_json.encode(), config.MASTER_KEY, salt)
+
+
+def decrypt_token(encrypted_token: bytes, user_id: int) -> str:
+    """Decrypt OAuth token.
+    
+    Args:
+        encrypted_token: Encrypted token
+        user_id: User ID for salt generation
+        
+    Returns:
+        Decrypted JSON string
+    """
+    salt = hashlib.sha256(f"{user_id}{config.MASTER_KEY}token".encode()).digest()[:16]
+    return decrypt(encrypted_token, config.MASTER_KEY, salt).decode()
