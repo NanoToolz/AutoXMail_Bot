@@ -110,10 +110,10 @@ class BotHandlers:
             ],
             [
                 InlineKeyboardButton(f"📬 {to_tiny_caps('Inbox')}", callback_data="inbox"),
-                InlineKeyboardButton(f"🔍 {to_tiny_caps('Search')}", callback_data="search")
+                InlineKeyboardButton(f"✉️ {to_tiny_caps('Compose')}", callback_data="compose")
             ],
             [
-                InlineKeyboardButton(f"🏷️ {to_tiny_caps('Labels')}", callback_data="labels"),
+                InlineKeyboardButton(f"🔍 {to_tiny_caps('Search')}", callback_data="search"),
                 InlineKeyboardButton(f"⚙️ {to_tiny_caps('Settings')}", callback_data="settings")
             ],
             [
@@ -321,6 +321,10 @@ class BotHandlers:
             
             keyboard = [
                 [
+                    InlineKeyboardButton(f"↩️ {to_tiny_caps('Reply')}", callback_data=f"email:reply:{account_id}:{message_id}"),
+                    InlineKeyboardButton(f"↪️ {to_tiny_caps('Forward')}", callback_data=f"email:forward:{account_id}:{message_id}")
+                ],
+                [
                     InlineKeyboardButton(
                         f"✅ {to_tiny_caps('Mark Read')}" if is_unread else f"📧 {to_tiny_caps('Mark Unread')}",
                         callback_data=f"mark_read:{account_id}:{message_id}" if is_unread 
@@ -329,8 +333,8 @@ class BotHandlers:
                     InlineKeyboardButton(f"🗑️ {to_tiny_caps('Delete')}", callback_data=f"delete:{account_id}:{message_id}")
                 ],
                 [
-                    InlineKeyboardButton(f"⚠️ {to_tiny_caps('Spam')}", callback_data=f"spam:{account_id}:{message_id}"),
-                    InlineKeyboardButton(f"🏷️ {to_tiny_caps('Labels')}", callback_data=f"msg_labels:{account_id}:{message_id}")
+                    InlineKeyboardButton(f"📄 {to_tiny_caps('Full Email')}", callback_data=f"email:full:{account_id}:{message_id}:1"),
+                    InlineKeyboardButton(f"⚠️ {to_tiny_caps('Spam')}", callback_data=f"spam:{account_id}:{message_id}")
                 ],
                 [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back to Inbox')}", callback_data="inbox")]
             ]
