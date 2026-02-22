@@ -189,6 +189,27 @@ def main():
     app.add_handler(CommandHandler("stats", admin_handler.stats_command))
     app.add_handler(CallbackQueryHandler(admin_handler.restart_command, pattern="^admin_restart$"))
     
+    # OAuth handlers - MUST BE BEFORE OTHER TEXT HANDLERS
+    app.add_handler(CallbackQueryHandler(oauth_handler.start_oauth, pattern="^add_account$"))
+    app.add_handler(CallbackQueryHandler(oauth_handler.force_add_account, pattern="^oauth_force_add:"))
+    
+    # OAuth document handler (credentials.json)
+    app.add_handler(MessageHandler(
+        filters.Document.ALL & ~filters.COMMAND,
+        oauth_handler.handle_credentials
+    ))
+    
+    # OAuth text handler (auth code) - with state check
+    async def oauth_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle OAuth auth code if in OAuth state."""
+        if context.user_data.get('state') == 'waiting_auth_code':
+            await oauth_handler.handle_auth_code(update, context)
+    
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        oauth_text_handler
+    ), group=0)  # Group 0 = highest priority
+    
     # Compose email conversation handler
     compose_handler = ConversationHandler(
         entry_points=[CallbackQueryHandler(email_handlers.start_compose, pattern="^compose$")],
@@ -226,7 +247,6 @@ def main():
     app.add_handler(CallbackQueryHandler(labels_handler.confirm_delete_label, pattern="^label_delete:"))
     app.add_handler(CallbackQueryHandler(labels_handler.delete_label, pattern="^label_delete_confirm:"))
     app.add_handler(CallbackQueryHandler(labels_handler.start_create_label, pattern="^label_create$"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, labels_handler.create_label))
     
     # Folders handlers
     app.add_handler(CallbackQueryHandler(folders_handler.show_folders, pattern="^folders$"))
@@ -237,12 +257,10 @@ def main():
     app.add_handler(CallbackQueryHandler(advanced_handlers.show_blocklist, pattern="^blocklist$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.start_add_blocklist, pattern="^blocklist_add$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.remove_from_blocklist, pattern="^blocklist_remove:"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, advanced_handlers.add_to_blocklist_handler))
     
     app.add_handler(CallbackQueryHandler(advanced_handlers.show_vip_senders, pattern="^vip_senders$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.start_add_vip, pattern="^vip_add$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.remove_vip_sender, pattern="^vip_remove:"))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, advanced_handlers.add_vip_sender_handler))
     
     app.add_handler(CallbackQueryHandler(advanced_handlers.show_privacy_settings, pattern="^privacy_settings$"))
     app.add_handler(CallbackQueryHandler(advanced_handlers.set_privacy_timer, pattern="^privacy_timer:"))
@@ -260,23 +278,49 @@ def main():
     # Inbox time range handlers
     app.add_handler(CallbackQueryHandler(handlers.inbox_with_time, pattern="^inbox_time:"))
     
-    # OAuth force add handler
-    app.add_handler(CallbackQueryHandler(oauth_handler.force_add_account, pattern="^oauth_force_add:"))
-    
     # Email interaction handlers
     app.add_handler(CallbackQueryHandler(email_handlers.start_reply, pattern="^email:reply:"))
     app.add_handler(CallbackQueryHandler(email_handlers.start_forward, pattern="^email:forward:"))
     app.add_handler(CallbackQueryHandler(email_handlers.view_full_email, pattern="^email:full:"))
     
-    # Reply/Forward message handlers (must be before unknown handler)
+    # Reply/Forward message handlers - with state check
+    async def reply_forward_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle reply/forward if in correct state."""
+        waiting_for = context.user_data.get('waiting_for')
+        if waiting_for == 'reply_body':
+            await email_handlers.send_reply(update, context)
+        elif waiting_for == 'forward_to':
+            await email_handlers.send_forward(update, context)
+    
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
-        email_handlers.send_reply
-    ))
+        reply_forward_handler
+    ), group=1)
+    
+    # Labels create handler - with state check
+    async def label_create_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle label creation if in correct state."""
+        if context.user_data.get('waiting_for') == 'label_name':
+            await labels_handler.create_label(update, context)
+    
     app.add_handler(MessageHandler(
         filters.TEXT & ~filters.COMMAND,
-        email_handlers.send_forward
-    ))
+        label_create_handler
+    ), group=2)
+    
+    # Advanced handlers - with state check
+    async def advanced_text_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Handle advanced features if in correct state."""
+        waiting_for = context.user_data.get('waiting_for')
+        if waiting_for == 'blocklist_email':
+            await advanced_handlers.add_to_blocklist_handler(update, context)
+        elif waiting_for == 'vip_email':
+            await advanced_handlers.add_vip_sender_handler(update, context)
+    
+    app.add_handler(MessageHandler(
+        filters.TEXT & ~filters.COMMAND,
+        advanced_text_handler
+    ), group=3)
     
     # Callback query handlers
     app.add_handler(CallbackQueryHandler(handlers.verify_join, pattern="^verify_join$"))
@@ -294,22 +338,11 @@ def main():
     app.add_handler(CallbackQueryHandler(handlers.toggle_spam_filter, pattern="^toggle_spam_filter$"))
     app.add_handler(CallbackQueryHandler(handlers.toggle_promo_filter, pattern="^toggle_promo_filter$"))
     
-    # OAuth handlers
-    app.add_handler(CallbackQueryHandler(oauth_handler.start_oauth, pattern="^add_account$"))
-    app.add_handler(MessageHandler(
-        filters.Document.ALL & ~filters.COMMAND,
-        oauth_handler.handle_credentials
-    ))
-    app.add_handler(MessageHandler(
-        filters.TEXT & ~filters.COMMAND,
-        oauth_handler.handle_auth_code
-    ))
-    
-    # Unknown input handler (MUST BE LAST)
+    # Unknown input handler (MUST BE LAST) - group 10
     app.add_handler(MessageHandler(
         filters.ALL & ~filters.COMMAND,
         handlers.unknown_handler
-    ))
+    ), group=10)
     
     # Error handler
     app.add_error_handler(error_handler)
