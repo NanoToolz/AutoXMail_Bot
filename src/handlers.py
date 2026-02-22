@@ -214,7 +214,8 @@ class BotHandlers:
             ])
         
         keyboard.append([InlineKeyboardButton(f"➕ {to_tiny_caps('Add Account')}", callback_data="add_account")])
-        keyboard.append([InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")])
+        keyboard.append([InlineKeyboardButton(f"🔙 {to_tiny_caps('Back to Menu')}", callback_data="start")])
+        keyboard.append([InlineKeyboardButton(f"🏠 {to_tiny_caps('Main Menu')}", callback_data="start")])
         
         await query.edit_message_text(
             message,
@@ -358,7 +359,8 @@ class BotHandlers:
                 ])
             
             keyboard.append([InlineKeyboardButton(f"🔄 {to_tiny_caps('Refresh')}", callback_data=f"inbox_time:{time_range}")])
-            keyboard.append([InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="inbox")])
+            keyboard.append([InlineKeyboardButton(f"🔙 {to_tiny_caps('Back to Inbox')}", callback_data="inbox")])
+            keyboard.append([InlineKeyboardButton(f"🏠 {to_tiny_caps('Main Menu')}", callback_data="start")])
             
             await query.edit_message_text(
                 text,
@@ -429,7 +431,8 @@ class BotHandlers:
                     InlineKeyboardButton(f"⚠️ {to_tiny_caps('Spam')}", callback_data=f"spam:{account_id}:{message_id}"),
                     InlineKeyboardButton(f"⭐ {to_tiny_caps('Star')}", callback_data=f"star:{account_id}:{message_id}")
                 ],
-                [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back to Inbox')}", callback_data="inbox")]
+                [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back to Inbox')}", callback_data="inbox")],
+                [InlineKeyboardButton(f"🏠 {to_tiny_caps('Main Menu')}", callback_data="start")]
             ]
             
             await query.edit_message_text(
@@ -618,7 +621,8 @@ class BotHandlers:
                 f"🤖 {to_tiny_caps('Bot Settings')}",
                 callback_data="bot_settings"
             )],
-            [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")]
+            [InlineKeyboardButton(f"🔙 {to_tiny_caps('Back to Menu')}", callback_data="start")],
+            [InlineKeyboardButton(f"🏠 {to_tiny_caps('Main Menu')}", callback_data="start")]
         ]
         
         await query.edit_message_text(

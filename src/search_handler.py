@@ -175,7 +175,8 @@ class SearchHandler:
                 )])
             
             keyboard.append([InlineKeyboardButton(f"🔍 {to_tiny_caps('Search Again')}", callback_data="search")])
-            keyboard.append([InlineKeyboardButton(f"🔙 {to_tiny_caps('Back')}", callback_data="start")])
+            keyboard.append([InlineKeyboardButton(f"🔙 {to_tiny_caps('Back to Menu')}", callback_data="start")])
+            keyboard.append([InlineKeyboardButton(f"🏠 {to_tiny_caps('Main Menu')}", callback_data="start")])
             
             await update.message.reply_text(
                 text,

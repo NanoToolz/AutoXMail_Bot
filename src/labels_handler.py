@@ -140,7 +140,11 @@ class LabelsHandler:
                 callback_data="label_create"
             )])
             keyboard.append([InlineKeyboardButton(
-                f"🔙 {to_tiny_caps('Back')}",
+                f"🔙 {to_tiny_caps('Back to Menu')}",
+                callback_data="start"
+            )])
+            keyboard.append([InlineKeyboardButton(
+                f"🏠 {to_tiny_caps('Main Menu')}",
                 callback_data="start"
             )])
             
@@ -217,6 +221,10 @@ class LabelsHandler:
             keyboard.append([InlineKeyboardButton(
                 f"🔙 {to_tiny_caps('Back to Labels')}",
                 callback_data="labels"
+            )])
+            keyboard.append([InlineKeyboardButton(
+                f"🏠 {to_tiny_caps('Main Menu')}",
+                callback_data="start"
             )])
             
             await query.edit_message_text(

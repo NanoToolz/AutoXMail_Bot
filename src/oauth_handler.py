@@ -133,16 +133,22 @@ class OAuthHandler:
         
         user_id = update.effective_user.id
         
+        # Show loading message
+        loading_msg = await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text=f"⏳ {escape_markdown('Processing your credentials...')}",
+            parse_mode='MarkdownV2'
+        )
+        
         # Get document
         document = update.message.document
         if not document or not document.file_name.endswith('.json'):
-            msg = await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=f"❌ {escape_markdown('Please send a valid credentials.json file.')}",
+            await loading_msg.edit_text(
+                f"❌ {escape_markdown('Please send a valid credentials.json file.')}",
                 parse_mode='MarkdownV2'
             )
             # Auto-delete error message
-            asyncio.create_task(schedule_delete(context.bot, update.effective_chat.id, msg.message_id, 5))
+            asyncio.create_task(schedule_delete(context.bot, update.effective_chat.id, loading_msg.message_id, 5))
             return
         
         try:
@@ -185,6 +191,9 @@ class OAuthHandler:
                 {'state': state}
             )
             
+            # Delete loading message
+            await loading_msg.delete()
+            
             # Send auth URL
             text = (
                 f"✅ *{to_tiny_caps('Credentials Received')}*\n"
@@ -214,16 +223,13 @@ class OAuthHandler:
             context.user_data['session_id'] = session_id
             
         except Exception as e:
-            msg = await context.bot.send_message(
-                chat_id=update.effective_chat.id,
-                text=(
-                    f"❌ {escape_markdown(f'Error processing credentials: {str(e)}')}\n\n"
-                    f"Please make sure you uploaded a valid credentials\\.json file\\."
-                ),
+            await loading_msg.edit_text(
+                f"❌ {escape_markdown(f'Error processing credentials: {str(e)}')}\n\n"
+                f"Please make sure you uploaded a valid credentials\\.json file\\.",
                 parse_mode='MarkdownV2'
             )
             # Auto-delete error message
-            asyncio.create_task(schedule_delete(context.bot, update.effective_chat.id, msg.message_id, 10))
+            asyncio.create_task(schedule_delete(context.bot, update.effective_chat.id, loading_msg.message_id, 10))
             context.user_data['state'] = None
     
     async def handle_auth_code(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -236,14 +242,19 @@ class OAuthHandler:
         
         if not session_id or session_id not in self.flows:
             await update.message.reply_text(
-                "❌ Session expired. Please start over with /start"
+                f"❌ {escape_markdown('Session expired. Please start over with /start')}",
+                parse_mode='MarkdownV2'
             )
             context.user_data['state'] = None
             return
         
         response = update.message.text.strip()
         
-        await update.message.reply_text("⏳ Processing authorization...")
+        # Show loading message
+        loading_msg = await update.message.reply_text(
+            f"⏳ {escape_markdown('Processing authorization...')}",
+            parse_mode='MarkdownV2'
+        )
         
         try:
             # Extract code from URL
@@ -279,8 +290,21 @@ class OAuthHandler:
             elif 'web' in creds_info:
                 api_project_email = creds_info['web'].get('client_email')
             
+            # Prepare token info
+            token_info = {
+                'token': creds.token,
+                'refresh_token': creds.refresh_token,
+                'token_uri': creds.token_uri,
+                'client_id': creds.client_id,
+                'client_secret': creds.client_secret,
+                'scopes': creds.scopes
+            }
+            
             # Check if user is trying to add API project email
             if api_project_email and email == api_project_email:
+                # Delete loading message
+                await loading_msg.delete()
+                
                 # Show warning
                 keyboard = [
                     [
@@ -319,16 +343,6 @@ class OAuthHandler:
                 
                 return
             
-            # Prepare token info
-            token_info = {
-                'token': creds.token,
-                'refresh_token': creds.refresh_token,
-                'token_uri': creds.token_uri,
-                'client_id': creds.client_id,
-                'client_secret': creds.client_secret,
-                'scopes': creds.scopes
-            }
-            
             # Encrypt credentials and token
             credentials_enc, _ = encrypt_credentials(credentials_json, user_id)
             token_enc = encrypt_token(json.dumps(token_info), user_id)
@@ -340,6 +354,9 @@ class OAuthHandler:
             del self.flows[session_id]
             await db.delete_session(session_id)
             context.user_data['state'] = None
+            
+            # Delete loading message
+            await loading_msg.delete()
             
             # Success message
             text = (
@@ -359,7 +376,7 @@ class OAuthHandler:
             )
             
         except Exception as e:
-            await update.message.reply_text(
+            await loading_msg.edit_text(
                 f"❌ {escape_markdown(f'Authorization failed: {str(e)}')}\n\n"
                 f"Please make sure you:\n"
                 f"1\\. Copied the entire URL correctly\n"

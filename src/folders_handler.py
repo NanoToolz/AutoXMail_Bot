@@ -110,7 +110,11 @@ class FoldersHandler:
                 )])
             
             keyboard.append([InlineKeyboardButton(
-                f"🔙 {to_tiny_caps('Back')}",
+                f"🔙 {to_tiny_caps('Back to Menu')}",
+                callback_data="start"
+            )])
+            keyboard.append([InlineKeyboardButton(
+                f"🏠 {to_tiny_caps('Main Menu')}",
                 callback_data="start"
             )])
             
@@ -199,6 +203,10 @@ class FoldersHandler:
             keyboard.append([InlineKeyboardButton(
                 f"🔙 {to_tiny_caps('Back to Folders')}",
                 callback_data="folders"
+            )])
+            keyboard.append([InlineKeyboardButton(
+                f"🏠 {to_tiny_caps('Main Menu')}",
+                callback_data="start"
             )])
             
             await query.edit_message_text(
