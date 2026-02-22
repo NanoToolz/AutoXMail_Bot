@@ -3,6 +3,7 @@ import base64
 import json
 import asyncio
 import logging
+import aiosqlite
 from aiohttp import web
 from telegram import Bot
 from database import db
@@ -48,8 +49,8 @@ class PushService:
             logger.info(f"Push notification for {email_address}, historyId: {history_id}")
             
             # Find user and account in database
-            async with db.db_path as conn:
-                conn.row_factory = db.aiosqlite.Row
+            async with aiosqlite.connect(db.db_path) as conn:
+                conn.row_factory = aiosqlite.Row
                 cursor = await conn.execute(
                     "SELECT ga.*, u.user_id FROM gmail_accounts ga "
                     "JOIN users u ON ga.user_id = u.user_id "
@@ -78,7 +79,7 @@ class PushService:
             push_mode = settings.get('push_mode', 'all')  # off, otp, vip, all
             
             # Get blocklist
-            async with db.db_path as conn:
+            async with aiosqlite.connect(db.db_path) as conn:
                 cursor = await conn.execute(
                     "SELECT blocked_value FROM blocklist WHERE user_id = ?",
                     (user_id,)
@@ -86,7 +87,7 @@ class PushService:
                 blocklist = [row[0] for row in await cursor.fetchall()]
             
             # Get VIP senders
-            async with db.db_path as conn:
+            async with aiosqlite.connect(db.db_path) as conn:
                 cursor = await conn.execute(
                     "SELECT sender_value FROM vip_senders WHERE user_id = ?",
                     (user_id,)
@@ -165,7 +166,7 @@ class PushService:
                         delete_delay = account_timer
                     else:
                         # Use global privacy settings
-                        async with db.db_path as conn:
+                        async with aiosqlite.connect(db.db_path) as conn:
                             cursor = await conn.execute(
                                 "SELECT global_auto_delete_secs FROM privacy_settings WHERE user_id = ?",
                                 (user_id,)
@@ -189,7 +190,7 @@ class PushService:
                     continue
             
             # Update last history ID
-            async with db.db_path as conn:
+            async with aiosqlite.connect(db.db_path) as conn:
                 await conn.execute(
                     "UPDATE gmail_accounts SET last_history_id = ? WHERE id = ?",
                     (history_id, account_id)

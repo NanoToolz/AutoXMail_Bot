@@ -1,6 +1,7 @@
 """Advanced handlers for blocklist, VIP, privacy, and bot settings."""
 import re
 import logging
+import aiosqlite
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from database import db
@@ -45,8 +46,8 @@ class AdvancedHandlers:
         await query.answer()
         user_id = update.effective_user.id
 
-        async with db.db_path as conn:
-            conn.row_factory = db.aiosqlite.Row
+        async with aiosqlite.connect(db.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
                 "SELECT * FROM blocklist WHERE user_id = ? ORDER BY created_at DESC",
                 (user_id,)
@@ -120,7 +121,7 @@ class AdvancedHandlers:
             await schedule_delete(context.bot, msg.chat.id, msg.message_id, DELETE_WARNING)
             return
 
-        async with db.db_path as conn:
+        async with aiosqlite.connect(db.db_path) as conn:
             try:
                 await conn.execute(
                     "INSERT OR IGNORE INTO blocklist (user_id, blocked_value) VALUES (?, ?)",
@@ -147,7 +148,7 @@ class AdvancedHandlers:
         user_id = update.effective_user.id
         entry_id = int(query.data.split(":")[1])
 
-        async with db.db_path as conn:
+        async with aiosqlite.connect(db.db_path) as conn:
             cursor = await conn.execute(
                 "SELECT blocked_value FROM blocklist WHERE id = ? AND user_id = ?",
                 (entry_id, user_id)
@@ -168,8 +169,8 @@ class AdvancedHandlers:
         await query.answer()
         user_id = update.effective_user.id
 
-        async with db.db_path as conn:
-            conn.row_factory = db.aiosqlite.Row
+        async with aiosqlite.connect(db.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
                 "SELECT * FROM vip_senders WHERE user_id = ? ORDER BY created_at DESC",
                 (user_id,)
@@ -243,7 +244,7 @@ class AdvancedHandlers:
             await schedule_delete(context.bot, msg.chat.id, msg.message_id, DELETE_WARNING)
             return
 
-        async with db.db_path as conn:
+        async with aiosqlite.connect(db.db_path) as conn:
             try:
                 await conn.execute(
                     "INSERT OR IGNORE INTO vip_senders (user_id, sender_value) VALUES (?, ?)",
@@ -270,7 +271,7 @@ class AdvancedHandlers:
         user_id = update.effective_user.id
         entry_id = int(query.data.split(":")[1])
 
-        async with db.db_path as conn:
+        async with aiosqlite.connect(db.db_path) as conn:
             await conn.execute(
                 "DELETE FROM vip_senders WHERE id = ? AND user_id = ?",
                 (entry_id, user_id)
@@ -285,8 +286,8 @@ class AdvancedHandlers:
         await query.answer()
         user_id = update.effective_user.id
 
-        async with db.db_path as conn:
-            conn.row_factory = db.aiosqlite.Row
+        async with aiosqlite.connect(db.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
                 "SELECT global_auto_delete_secs FROM privacy_settings WHERE user_id = ?",
                 (user_id,)
@@ -324,7 +325,7 @@ class AdvancedHandlers:
         user_id = update.effective_user.id
         secs = int(query.data.split(":")[1])
 
-        async with db.db_path as conn:
+        async with aiosqlite.connect(db.db_path) as conn:
             await conn.execute(
                 "INSERT OR REPLACE INTO privacy_settings (user_id, global_auto_delete_secs) VALUES (?, ?)",
                 (user_id, secs)
@@ -413,8 +414,8 @@ class AdvancedHandlers:
         user_id = update.effective_user.id
         account_id = int(query.data.split(":")[1])
 
-        async with db.db_path as conn:
-            conn.row_factory = db.aiosqlite.Row
+        async with aiosqlite.connect(db.db_path) as conn:
+            conn.row_factory = aiosqlite.Row
             cursor = await conn.execute(
                 "SELECT email, auto_delete_secs FROM gmail_accounts WHERE id = ? AND user_id = ?",
                 (account_id, user_id)
@@ -460,7 +461,7 @@ class AdvancedHandlers:
         account_id = int(parts[1])
         secs = int(parts[2])
 
-        async with db.db_path as conn:
+        async with aiosqlite.connect(db.db_path) as conn:
             await conn.execute(
                 "UPDATE gmail_accounts SET auto_delete_secs = ? WHERE id = ? AND user_id = ?",
                 (secs, account_id, user_id)
@@ -515,7 +516,7 @@ class AdvancedHandlers:
 
             success = await gmail_service.unsubscribe_email(service, msg_id)
 
-            async with db.db_path as conn:
+            async with aiosqlite.connect(db.db_path) as conn:
                 try:
                     await conn.execute(
                         "INSERT OR IGNORE INTO blocklist (user_id, blocked_value) VALUES (?, ?)",

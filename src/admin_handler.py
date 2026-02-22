@@ -2,6 +2,7 @@
 import os
 import sys
 import psutil
+import aiosqlite
 from datetime import datetime
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -91,7 +92,7 @@ class AdminHandler:
                 db_size = config.DB_PATH.stat().st_size / 1024 / 1024  # MB
             
             # Get user counts
-            async with db.db_path as conn:
+            async with aiosqlite.connect(db.db_path) as conn:
                 conn.row_factory = None
                 cursor = await conn.execute("SELECT COUNT(*) FROM users")
                 total_users = (await cursor.fetchone())[0]
@@ -203,8 +204,8 @@ class AdminHandler:
         
         try:
             # Get all users
-            async with db.db_path as conn:
-                conn.row_factory = db.aiosqlite.Row
+            async with aiosqlite.connect(db.db_path) as conn:
+                conn.row_factory = aiosqlite.Row
                 cursor = await conn.execute("SELECT DISTINCT user_id FROM users")
                 users = await cursor.fetchall()
             
@@ -259,7 +260,7 @@ class AdminHandler:
             return
         
         try:
-            async with db.db_path as conn:
+            async with aiosqlite.connect(db.db_path) as conn:
                 conn.row_factory = None
                 
                 # Total users

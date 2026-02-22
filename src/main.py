@@ -7,6 +7,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 import asyncio
 import logging
+import aiosqlite
 from telegram import Update
 from telegram.ext import (
     Application,
@@ -121,8 +122,8 @@ async def renew_push_subscriptions():
             logger.info("Renewing push subscriptions...")
             
             # Get all active accounts
-            async with db.db_path as conn:
-                conn.row_factory = db.aiosqlite.Row
+            async with aiosqlite.connect(db.db_path) as conn:
+                conn.row_factory = aiosqlite.Row
                 cursor = await conn.execute(
                     "SELECT id, email, user_id FROM gmail_accounts WHERE is_active = 1"
                 )
@@ -140,7 +141,7 @@ async def renew_push_subscriptions():
                         result = await gmail_service.setup_push(account_id, topic_name)
                         
                         # Update history ID
-                        async with db.db_path as conn:
+                        async with aiosqlite.connect(db.db_path) as conn:
                             await conn.execute(
                                 "UPDATE gmail_accounts SET last_history_id = ? WHERE id = ?",
                                 (result['historyId'], account_id)
